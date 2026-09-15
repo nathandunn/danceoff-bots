@@ -10,6 +10,9 @@ const BLOCK := 4            # flair is scored per four-beat block
 const TIER_PTS := [0.0, 2.0, 4.0, 7.0]     # flair per block at perfect execution
 const FUMBLE := [0.0, 0.04, 0.12, 0.26]    # fumble chance per block, times the build's factor
 
+# moves whose execution depends on the arms (PlayerBuild arm)
+const ARM_MOVES: Array[String] = ["clap_snap", "shimmy", "spin", "jazz_hands", "windmill", "cane_twirl"]
+
 const BOOK := {
 	"step_touch": {"label": "Step-touch", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
 	"clap_snap": {"label": "Clap-snap", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},

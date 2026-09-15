@@ -33,6 +33,8 @@ def run(red, blue, redbuild, bluebuild, games, seed, gains=None, bars=None):
         args.append("--gains=" + ",".join(f"{k}:{v:.4f}" for k, v in gains.items()))
     if bars:
         args.append(f"--bars={bars}")
+    if os.environ.get("TUNE"):
+        args.append("--tune=" + os.environ["TUNE"])
     out = subprocess.run(args, capture_output=True, text=True, timeout=7200).stdout
     for line in out.splitlines():
         if line.startswith("SUMMARY "):

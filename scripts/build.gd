@@ -20,11 +20,11 @@ const PROP_HELP := {
 	"flair": "Execution: how much each move is worth",
 	"balance": "Fewer fumbles, harder to floor, up sooner",
 	"strength": "Knocks rivals down (punch, barge, dance-strike)",
-	"arm": "Throw speed and accuracy",
+	"arm": "Arm-work moves, hat and cane flourish, throwing",
 }
 
-const GAINS := {"rhythm": 1.000, "flair": 1.000, "balance": 1.000, "strength": 1.000, "arm": 1.000}
-const CURVE := 0.500
+const GAINS := {"rhythm": 0.180, "flair": 0.438, "balance": 0.867, "strength": 4.733, "arm": 3.991}
+const CURVE := 0.476
 
 const PRESETS := {
 	"Even":      {"rhythm": 0.20, "flair": 0.20, "balance": 0.20, "strength": 0.20, "arm": 0.20},

@@ -61,6 +61,8 @@ func _ready() -> void:
 			manager.team_builds[t].gains = gains
 			manager.team_builds[t].curve = curve2
 			manager.team_build_names[t] = manager.team_builds[t].label()
+	if args.has("tune"):
+		Tune.apply(String(args["tune"]))
 	if args.has("seed"):
 		_base_seed = int(args["seed"])
 	if args.has("bars"):

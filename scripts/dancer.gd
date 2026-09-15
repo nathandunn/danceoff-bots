@@ -427,7 +427,7 @@ func _set_action(a: String, t: Dancer, p: Prop) -> void:
 
 
 func _dance_score() -> float:
-	return 0.9 + 0.5 * discipline + 0.3 * showmanship
+	return Tune.v("dance_base") + 0.5 * discipline + 0.3 * showmanship
 
 
 func _brawl_score(e: Dancer, now: float) -> float:
@@ -435,9 +435,9 @@ func _brawl_score(e: Dancer, now: float) -> float:
 	if d > 9.0:
 		return -1.0
 	var prox := 1.0 - d / 10.0
-	var s := aggression * 2.4 * prox - caution * 0.5 * (1.0 - prox * 0.5)
+	var s := aggression * Tune.v("brawl_mult") * prox - caution * 0.5 * (1.0 - prox * 0.5)
 	if e == last_attacker and now - last_attacked_at < 8.0:
-		s += grudge * 1.5
+		s += grudge * Tune.v("grudge_mult")
 	if e.held != null and e.held.is_dance_prop():
 		s += 0.25 * aggression
 	if float(_had_enough.get(e, -100.0)) > now:
@@ -463,7 +463,7 @@ func _guard_choice() -> Array:
 			if not threat:
 				continue
 			var d := global_position.distance_to(e.global_position)
-			var s := teamwork * 2.2 * maxf(1.0 - d / 12.0, 0.0) + aggression * 0.3 - caution * 0.3
+			var s := teamwork * Tune.v("guard_mult") * maxf(1.0 - d / 12.0, 0.0) + aggression * 0.3 - caution * 0.3
 			if s > best_s:
 				best_s = s
 				best = [e, s]
@@ -519,7 +519,7 @@ func _fetch_choice() -> Array:
 		var value := aggression * 1.2
 		if p.is_dance_prop():
 			value += showmanship * 1.8 * remaining
-		var s := value * (1.0 - d / 14.0) + 0.2 - caution * 0.15
+		var s := value * Tune.v("fetch_mult") * (1.0 - d / 14.0) + 0.2 - caution * 0.15
 		if s > best_s:
 			best_s = s
 			best = [p, s]
@@ -618,6 +618,9 @@ func on_beat(b: int, call: String) -> void:
 		if recent_moves.size() > 4:
 			recent_moves.pop_front()
 		fumbled = rng.randf() < float(Moves.FUMBLE[Moves.tier(move)]) * fumble_mult
+	# a dancer who stopped mid-phrase may pick the call up again at the next bar
+	if not joined and dancing and b % Moves.BLOCK == 0 and b % Moves.PHRASE != 0 and Tune.v("rejoin_beats") <= 4.0:
+		joined = true
 	tempo_err = tempo_err * 0.7 + rng.randfn(0.0, timing_sigma)
 	in_sync = false
 	if dancing and joined:
@@ -652,9 +655,13 @@ func _score_block() -> void:
 			repeats += 1
 	q *= maxf(1.0 - 0.2 * float(repeats), 0.4)
 	if held != null and held.is_dance_prop():
-		q *= 1.2
+		# twirling a cane or tipping a hat is hand work: arm sets how much the prop adds
+		q *= 1.0 + 0.35 * clampf(arm_skill, 0.0, 1.5)
 	if String(Moves.BOOK[move]["prop"]) == "cane" and (held == null or held.kind != Prop.Kind.CANE):
 		q *= 0.6
+	if Moves.ARM_MOVES.has(move):
+		# arm work - claps, shimmies, spins, windmills, twirls - is judged partly on the arms
+		q *= 0.8 + 0.4 * clampf(arm_skill, 0.0, 1.5)
 	var pts := float(Moves.TIER_PTS[Moves.tier(move)]) * q
 	stats["flair"] += pts
 	manager.add_flair(team, pts, false)
@@ -688,7 +695,7 @@ func _try_strike(b: int) -> void:
 	if rng.randf() > 0.8:
 		return
 	stats["strike_hits"] += 1.0
-	var pts := STRIKE_PTS * clampf(execution, 0.2, 1.4)
+	var pts := Tune.v("strike_pts") * clampf(execution, 0.2, 1.4)
 	stats["flair"] += pts
 	stats["strike_pts"] += pts
 	manager.add_flair(team, pts, true)
@@ -907,7 +914,7 @@ func take_hit(by: Dancer, how: String, dir: Vector3, power: float) -> void:
 	block_ok = false
 	stats["hits_taken"] += 1.0
 	flash(Color(1, 1, 1))
-	var kd := 0.45 + 0.35 * (power - balance_skill)
+	var kd := Tune.v("kd_base") + 0.35 * (power - balance_skill)
 	kd = clampf(kd, 0.08, 0.92)
 	if now - _got_up_at < GETUP_GRACE:
 		kd = 0.0
@@ -945,7 +952,7 @@ func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float
 	_pending_dodge = -1.0
 	joined = false
 	in_sync = false
-	_down = down_base + (0.6 if now - _last_floored < 6.0 else 0.0)
+	_down = down_base * Tune.v("down_mult") + (0.6 if now - _last_floored < 6.0 else 0.0)
 	_last_floored = now
 	_spawn_ragdoll()
 	if ragdoll != null:
