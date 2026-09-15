@@ -104,6 +104,8 @@ func start_match(seed_value: int = -1) -> void:
 		totals[t] = 0.0
 	if stage != null:
 		stage.hide_cards()
+		if not headless:
+			_update_board()
 
 
 func _clear() -> void:
@@ -133,11 +135,13 @@ func _physics_process(delta: float) -> void:
 			_on_beat(beat_i)
 		if stage != null and not headless:
 			stage.bounce(beat_f)
+			_update_board()
 	elif celebrating:
 		elapsed += delta
 		beat_f = elapsed * BPM / 60.0
 		if stage != null and not headless:
 			stage.bounce(beat_f)
+			_update_board()
 		_phase_t -= delta
 		if _phase_t <= 0.0:
 			if celebration_phase == "judging":
@@ -185,6 +189,22 @@ func _captain_call(t: int) -> String:
 				near = true
 	var log_t: Array = call_log[t]
 	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2))
+
+
+func song_length() -> float:
+	return float(song_bars * 4) * 60.0 / BPM
+
+
+## The board on the backdrop: time left and running score (sync + flair) while the song plays;
+## after it, the average judge's points.
+func _update_board() -> void:
+	if running or not celebrating:
+		var left := maxf(song_length() - elapsed, 0.0)
+		var secs := int(ceil(left))
+		stage.update_board("%d:%02d" % [secs / 60, secs % 60], int(score(0)), int(score(1)), running and left <= 10.0)
+	else:
+		stage.update_board("JUDGING" if celebration_phase == "judging" else "FINAL",
+			int(round(totals[0] / 3.0)), int(round(totals[1] / 3.0)), false)
 
 
 func team_dancers(t: int) -> Array[Dancer]:

@@ -14,6 +14,9 @@ var crowd: Array[Node3D] = []
 var _crowd_base: Array[float] = []
 var _crowd_phase: Array[float] = []
 var judge_cards: Array = []   # per judge: [Label3D for team 0, Label3D for team 1]
+var board_timer: Label3D
+var board_scores: Array[Label3D] = []
+var _board_key := ""
 
 
 func _ready() -> void:
@@ -113,8 +116,13 @@ func _backdrop() -> void:
 	neon.outline_size = 24
 	neon.modulate = Color(1.0, 0.35, 0.75)
 	neon.outline_modulate = Color(0.25, 0.0, 0.2)
-	neon.position = Vector3(0, 3.6, z + 0.2)
+	neon.position = Vector3(0, 4.05, z + 0.2)
 	add_child(neon)
+	# the board under the sign: countdown in the middle, running score per crew either side
+	board_timer = _board_label(Vector3(0, 2.7, z + 0.2), 130, Color(1.0, 0.92, 0.55))
+	for t in 2:
+		board_scores.append(_board_label(Vector3((-1.0 if t == 0 else 1.0) * 5.2, 1.6, z + 0.2), 90,
+			(MatchManager.TEAM_COLORS[t] as Color).lightened(0.3)))
 	for t in 2:
 		var l := OmniLight3D.new()
 		l.light_color = (MatchManager.TEAM_COLORS[t] as Color).lightened(0.3)
@@ -122,6 +130,30 @@ func _backdrop() -> void:
 		l.omni_range = 14.0
 		l.position = Vector3((-1.0 if t == 0 else 1.0) * 6.0, 4.5, 1.0)
 		add_child(l)
+
+
+func _board_label(pos: Vector3, size: int, col: Color) -> Label3D:
+	var l := Label3D.new()
+	l.font_size = size
+	l.pixel_size = 0.01
+	l.outline_size = 20
+	l.modulate = col
+	l.outline_modulate = Color(0.05, 0.02, 0.05)
+	l.position = pos
+	add_child(l)
+	return l
+
+
+## clock text ("1:23", "JUDGING", "FINAL"), each crew's score, and whether the clock is in its last ten seconds
+func update_board(clock: String, s0: int, s1: int, urgent: bool) -> void:
+	var key := "%s|%d|%d|%s" % [clock, s0, s1, urgent]
+	if key == _board_key or board_timer == null:
+		return
+	_board_key = key
+	board_timer.text = clock
+	board_timer.modulate = Color(1.0, 0.3, 0.25) if urgent else Color(1.0, 0.92, 0.55)
+	board_scores[0].text = "%s  %d" % [String(MatchManager.TEAM_NAMES[0]).to_upper(), s0]
+	board_scores[1].text = "%d  %s" % [s1, String(MatchManager.TEAM_NAMES[1]).to_upper()]
 
 
 func _judges() -> void:
