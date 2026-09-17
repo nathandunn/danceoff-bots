@@ -34,6 +34,10 @@ var team_personalities: Array[Personality] = [Personality.preset("Rumbler"), Per
 var team_preset_names: Array[String] = ["Rumbler", "Showboat"]
 var team_builds: Array[PlayerBuild] = [PlayerBuild.preset("Even"), PlayerBuild.preset("Even")]
 var team_build_names: Array[String] = ["Even", "Even"]
+## Per-dancer overrides. An entry of "" means "whatever the troupe is set to", which is what
+## keeps the whole-team pickers meaningful after one dancer has been given something of theirs.
+var player_persona := [["", "", "", "", ""], ["", "", "", "", ""]]
+var player_build := [["", "", "", "", ""], ["", "", "", "", ""]]
 var song_bars := SONG_BARS
 var running := false
 var celebrating := false
@@ -72,8 +76,19 @@ func start_match(seed_value: int = -1) -> void:
 			d.manager = self
 			d.rng = RandomNumberGenerator.new()
 			d.rng.seed = rng.randi()
-			d.personality = team_personalities[t].jittered(rng)
-			d.build = team_builds[t].jittered(rng)
+			# a dancer follows the troupe unless given their own personality or build
+			var pname: String = String(player_persona[t][i])
+			d.personality = (team_personalities[t] if pname == "" else Personality.preset(pname)).jittered(rng)
+			var bname: String = String(player_build[t][i])
+			if bname == "":
+				d.build = team_builds[t].jittered(rng)
+			else:
+				var b := PlayerBuild.preset(bname)
+				b.gains = team_builds[t].gains
+				b.curve = team_builds[t].curve
+				d.build = b.jittered(rng)
+			d.persona_name = pname if pname != "" else team_preset_names[t]
+			d.build_name = bname if bname != "" else team_build_names[t]
 			d.position = Stage.home_spot(t, i)
 			d.rotation.y = PI
 			world.add_child(d)
@@ -304,8 +319,8 @@ func _result() -> Dictionary:
 	for d in dancers:
 		for k in Dancer.STAT_KEYS:
 			st[k][d.team] += float(d.stats[k])
-		players.append({"name": d.dancer_name, "team": d.team, "persona": team_preset_names[d.team],
-			"build": d.build.label(), "stats": d.stats.duplicate()})
+		players.append({"name": d.dancer_name, "team": d.team, "persona": d.persona_name,
+			"build": d.build_name, "stats": d.stats.duplicate()})
 	return {
 		"match": match_index,
 		"winner": winner,

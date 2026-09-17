@@ -39,6 +39,10 @@ var team_color := Color.RED
 var dancer_name := "d"
 var personality: Personality
 var build: PlayerBuild
+## What the setup panel called this one, so the results can name it (a jittered build no
+## longer matches its preset exactly, and "Custom" everywhere would tell nobody anything).
+var persona_name := ""
+var build_name := ""
 var manager = null
 var rng: RandomNumberGenerator
 

@@ -25,6 +25,9 @@ var results_title: Label
 var next_row: HFlowContainer
 var persona_buttons: Array[OptionButton] = []
 var build_buttons: Array[OptionButton] = []
+## [team][dancer] -> the little icon button for that dancer's persona / build
+var pp_btns := [[], []]
+var pb_btns := [[], []]
 var p_sliders := [{}, {}]
 var p_vals := [{}, {}]
 var b_sliders := [{}, {}]
@@ -201,7 +204,7 @@ func _build_teams_overlay() -> void:
 	teams_scroll = parts[1]
 	var content: VBoxContainer = parts[2]
 	var hint := Label.new()
-	hint.text = "Personality is how they behave; the build is what they are. The five build properties always add up to 1. Dancing in step scores sync, good moves score flair; anyone off fighting scores nothing - unless the kick lands on the beat of a real move. Each dancer gets the team settings with a little jitter."
+	hint.text = "Personality is how they behave; the build is what they are. The five build properties always add up to 1. Dancing in step scores sync, good moves score flair; anyone off fighting scores nothing - unless the kick lands on the beat of a real move. Set a whole troupe at once, or give any single dancer their own on the row of five - hover an icon for what it does, or press ? for the whole key."
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	hint.add_theme_font_size_override("font_size", 13)
 	content.add_child(hint)
@@ -241,18 +244,23 @@ func _slider_row(box: VBoxContainer, name_text: String, help: String, on_change:
 
 func _build_team_panel(t: int) -> Control:
 	var box := VBoxContainer.new()
+	var head := HBoxContainer.new()
 	var title := Label.new()
 	title.text = MatchManager.TEAM_NAMES[t]
 	title.add_theme_font_size_override("font_size", 18)
 	title.add_theme_color_override("font_color", (MatchManager.TEAM_COLORS[t] as Color).lightened(0.25))
-	box.add_child(title)
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(title)
+	head.add_child(_key_button())
+	box.add_child(head)
 	var pl := Label.new()
 	pl.text = "Personality"
 	pl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	box.add_child(pl)
 	var ob := OptionButton.new()
-	for p in PERSONA_LIST:
-		ob.add_item(p)
+	for i in PERSONA_LIST.size():
+		ob.add_icon_item(Icons.roster_icon(PERSONA_LIST[i], i, false), PERSONA_LIST[i])
+		ob.get_popup().set_item_tooltip(i, _describe(PERSONA_LIST[i], false))
 	ob.item_selected.connect(func(idx: int): _on_persona(t, PERSONA_LIST[idx]))
 	box.add_child(ob)
 	persona_buttons.append(ob)
@@ -265,8 +273,9 @@ func _build_team_panel(t: int) -> Control:
 	bl.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
 	box.add_child(bl)
 	var bb := OptionButton.new()
-	for p in BUILD_LIST:
-		bb.add_item(p)
+	for i in BUILD_LIST.size():
+		bb.add_icon_item(Icons.roster_icon(BUILD_LIST[i], i, true), BUILD_LIST[i])
+		bb.get_popup().set_item_tooltip(i, _describe(BUILD_LIST[i], true))
 	bb.item_selected.connect(func(idx: int): _on_build(t, BUILD_LIST[idx]))
 	box.add_child(bb)
 	build_buttons.append(bb)
@@ -281,7 +290,189 @@ func _build_team_panel(t: int) -> Control:
 	sum.custom_minimum_size.x = 300
 	box.add_child(sum)
 	b_sum.append(sum)
+
+	# ---- and the five of them, one column each: the ring means "follow the troupe"
+	var per := Label.new()
+	per.text = "Each dancer (ring = follow the troupe)"
+	per.add_theme_font_size_override("font_size", 13)
+	per.add_theme_color_override("font_color", Color(0.8, 0.8, 0.85))
+	box.add_child(per)
+	var grid := GridContainer.new()
+	grid.columns = MatchManager.TEAM_SIZE + 1
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 2)
+	box.add_child(grid)
+	grid.add_child(_mini_label(""))
+	for i in MatchManager.TEAM_SIZE:
+		var nl := _mini_label(String(MatchManager.DANCER_NAMES[t][i]))
+		nl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		nl.custom_minimum_size.x = 40
+		grid.add_child(nl)
+	grid.add_child(_mini_label("Person."))
+	for i in MatchManager.TEAM_SIZE:
+		var b := _picker(t, i, false)
+		pp_btns[t].append(b)
+		grid.add_child(b)
+	grid.add_child(_mini_label("Build"))
+	for i in MatchManager.TEAM_SIZE:
+		var b := _picker(t, i, true)
+		pb_btns[t].append(b)
+		grid.add_child(b)
 	return box
+
+
+func _mini_label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", Color(0.8, 0.8, 0.86))
+	l.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return l
+
+
+# ------------------------------------------------- the per-player pickers and their key
+
+## One icon-only button that opens a menu of icons and names, for a single dancer. "Team"
+## is always the first option and means "whatever the whole team is set to".
+func _picker(t: int, idx: int, is_build: bool) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(32, 28)
+	var options: Array = ["Team"]
+	for n in (BUILD_LIST if is_build else PERSONA_LIST):
+		if n != "Custom":
+			options.append(n)
+	var pm := PopupMenu.new()
+	for i in options.size():
+		var n: String = options[i]
+		var roster_i: int = (BUILD_LIST if is_build else PERSONA_LIST).find(n)
+		pm.add_icon_item(Icons.roster_icon(n, roster_i, is_build), n, i)
+		pm.set_item_tooltip(i, _describe(n, is_build))
+	pm.id_pressed.connect(func(id: int): _on_pick(t, idx, is_build, String(options[id])))
+	b.add_child(pm)
+	b.pressed.connect(func():
+		var origin := b.get_screen_transform().origin
+		pm.popup(Rect2i(Vector2i(int(origin.x), int(origin.y + b.size.y)), Vector2i(0, 0))))
+	return b
+
+
+## The key: icon / name / what it does, for both rosters, in one panel.
+func _key_button() -> Button:
+	var b := Button.new()
+	b.text = "?"
+	b.tooltip_text = "What the icons mean"
+	b.custom_minimum_size = Vector2(28, 26)
+	var pop := PopupPanel.new()
+	var psb := StyleBoxFlat.new()
+	psb.bg_color = Color(0.07, 0.08, 0.11, 1.0)      # opaque: it sits over the setup panel
+	psb.border_color = Color(0.4, 0.44, 0.52)
+	psb.set_border_width_all(1)
+	psb.set_corner_radius_all(6)
+	psb.set_content_margin_all(12)
+	pop.add_theme_stylebox_override("panel", psb)
+	var vb := VBoxContainer.new()
+	vb.add_theme_constant_override("separation", 6)
+	pop.add_child(vb)
+	for pair in [["Personalities - how they behave", PERSONA_LIST, false], ["Builds - what they are", BUILD_LIST, true]]:
+		var hl := Label.new()
+		hl.text = String(pair[0])
+		hl.add_theme_font_size_override("font_size", 15)
+		vb.add_child(hl)
+		var grid := GridContainer.new()
+		grid.columns = 3
+		grid.add_theme_constant_override("h_separation", 8)
+		grid.add_theme_constant_override("v_separation", 3)
+		vb.add_child(grid)
+		var is_build: bool = pair[2]
+		var list: Array = pair[1]
+		for i in list.size():
+			var n: String = list[i]
+			if n == "Custom":
+				continue
+			var tr := TextureRect.new()
+			tr.texture = Icons.roster_icon(n, i, is_build)
+			tr.stretch_mode = TextureRect.STRETCH_KEEP_CENTERED
+			tr.custom_minimum_size = Vector2(22, 22)
+			grid.add_child(tr)
+			grid.add_child(_cell(n, true, Color.WHITE, 13))
+			var lines := _describe(n, is_build).split("\n")
+			grid.add_child(_cell(lines[lines.size() - 1], false, Color(0.82, 0.82, 0.88), 13))
+	var note := Label.new()
+	note.text = "A dancer set to Team (the ring) just follows whatever the troupe is set to."
+	note.add_theme_font_size_override("font_size", 13)
+	note.add_theme_color_override("font_color", Color(0.75, 0.75, 0.82))
+	vb.add_child(note)
+	b.add_child(pop)
+	b.pressed.connect(func():
+		var origin := b.get_screen_transform().origin
+		var x := maxi(int(origin.x) - 260, 8)
+		pop.popup(Rect2i(Vector2i(x, int(origin.y + b.size.y)), Vector2i(0, 0))))
+	return b
+
+
+## One line of plain English per entry - the same words the tooltip and the key both use.
+func _describe(n: String, is_build: bool) -> String:
+	match n:
+		"Team":
+			return "Team\nFollow whatever the whole team is set to"
+		"Random":
+			return "Random\nRolled fresh for every dancer at the start of the number"
+		"Custom":
+			return "Custom\nWhatever the sliders currently say"
+		"Even":
+			return "Even\nNo strengths, no holes - the reference build"
+	if is_build:
+		var preset: Dictionary = PlayerBuild.PRESETS.get(n, {})
+		var best := ""
+		var best_v := -1.0
+		var second := ""
+		var second_v := -1.0
+		for p in PlayerBuild.PROPS:
+			var v := float(preset.get(p, 0.0))
+			if v > best_v:
+				second = best
+				second_v = best_v
+				best = p
+				best_v = v
+			elif v > second_v:
+				second = p
+				second_v = v
+		if best == "":
+			return "%s\nA mix of the five properties" % n
+		var tail := ", then %s" % second if second_v >= 0.3 else ""
+		return "%s\nMost of the budget in %s%s" % [n, best, tail]
+	var bits := PackedStringArray()
+	var tp: Dictionary = Personality.PRESETS.get(n, {})
+	for tr_name in Personality.TRAITS:
+		if float(tp.get(tr_name, 0.5)) >= 0.7:
+			bits.append(tr_name)
+	return "%s\nHigh %s" % [n, ", ".join(bits)] if bits.size() > 0 else "%s\nNo strong leanings" % n
+
+
+func _on_pick(t: int, idx: int, is_build: bool, name_picked: String) -> void:
+	var v := "" if name_picked == "Team" else name_picked
+	if is_build:
+		manager.player_build[t][idx] = v
+	else:
+		manager.player_persona[t][idx] = v
+	_refresh_pickers()
+
+
+func _refresh_pickers() -> void:
+	for t in 2:
+		var tp: String = manager.team_preset_names[t]
+		var tb: String = manager.team_build_names[t]
+		for i in MatchManager.TEAM_SIZE:
+			var who: String = MatchManager.DANCER_NAMES[t][i]
+			var pn: String = String(manager.player_persona[t][i])
+			var pb: Button = pp_btns[t][i]
+			pb.icon = Icons.roster_icon(pn if pn != "" else "Team", PERSONA_LIST.find(pn), false)
+			pb.tooltip_text = "%s personality: %s" % [who, _describe(pn if pn != "" else "Team", false)] \
+				+ ("\n(the team is %s)" % tp if pn == "" else "")
+			var bn: String = String(manager.player_build[t][i])
+			var bb2: Button = pb_btns[t][i]
+			bb2.icon = Icons.roster_icon(bn if bn != "" else "Team", BUILD_LIST.find(bn), true)
+			bb2.tooltip_text = "%s build: %s" % [who, _describe(bn if bn != "" else "Team", true)] \
+				+ ("\n(the team is %s)" % tb if bn == "" else "")
 
 
 func _build_results_overlay() -> void:
@@ -325,7 +516,7 @@ func _relayout() -> void:
 	var vs := get_viewport().get_visible_rect().size
 	var w := vs.x
 	var h := vs.y
-	teams_scroll.custom_minimum_size = Vector2(minf(820.0, w - 40.0), minf(560.0, h - 110.0))
+	teams_scroll.custom_minimum_size = Vector2(minf(880.0, w - 40.0), minf(640.0, h - 120.0))
 	var rc: Control = results_overlay.get_child(0)
 	if w > h:
 		rc.anchor_left = 0.5
@@ -405,6 +596,7 @@ func _refresh_sliders() -> void:
 		var bidx := BUILD_LIST.find(manager.team_build_names[t])
 		build_buttons[t].select(bidx if bidx >= 0 else BUILD_LIST.size() - 1)
 	_updating = false
+	_refresh_pickers()
 
 
 func _set_speed(s: float) -> void:
