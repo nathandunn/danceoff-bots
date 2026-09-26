@@ -1,7 +1,9 @@
 class_name Dancer
 extends CharacterBody3D
 ## One dancer: a boxes-and-capsules body, a brain that weighs dancing against fighting, and the
-## beat-by-beat bookkeeping that turns dancing into sync and flair for the team.
+## beat-by-beat bookkeeping that turns dancing into sync and flair for the team. The crew moves as
+## a crew: MatchManager sets the stance each phrase (hold / press / charge) and this file follows
+## it - the wedge advances or gives ground together, and a charge sends the lot at one rival.
 ##
 ## Scoring rules this file enforces: a dancer who is not dancing (brawling, fetching, throwing,
 ## dodging, floored, running back to his spot) scores nothing and is out of sync; having stopped,
@@ -446,6 +448,18 @@ func _brawl_score(e: Dancer, now: float) -> float:
 		s += 0.25 * aggression
 	if float(_had_enough.get(e, -100.0)) > now:
 		s -= 1.2
+	# the crew fights as a crew. Outside a charge a dancer throws a punch only to answer one. In
+	# a charge the fighting is danced - kicks and swings on the beat into the rival the charge
+	# named - so anyone on the strike move keeps dancing it, and only a dancer who isn't goes in
+	# with his fists
+	var st: String = manager.stance[team]
+	if st == "charge":
+		if not Moves.strikes(move).is_empty():
+			return -1.0
+		if e == manager.focus[team]:
+			s += Tune.v("charge_bonus") * (0.4 + aggression)
+	elif not (e == last_attacker and now - last_attacked_at < Tune.v("retort_s")):
+		return -1.0
 	var lead: float = manager.lead_fraction(1 - team)
 	s += 0.6 * aggression * lead
 	return s
@@ -538,8 +552,14 @@ func _do_dance(delta: float) -> void:
 	to.y = 0.0
 	var d := to.length()
 	# a spot a few metres off (a strike move's rival, home after a small shove) is danced
-	# towards; only a long way off does the dancer stop and run back
-	if not returning and d > RETURN_DIST and d < 5.0:
+	# towards; only a long way off does the dancer stop and run back. A charging crew travels
+	# the whole stage on the beat - the walk-up is part of the number, not a break from it
+	var travel := DRIFT_SPEED
+	var reach := 5.0
+	if strike_target != null and manager.stance[team] == "charge":
+		travel = Tune.v("charge_speed")
+		reach = 12.0
+	if not returning and d > RETURN_DIST and d < reach:
 		to *= RETURN_DIST * 0.8 / d
 		d = to.length()
 	if d > RETURN_DIST:
@@ -552,22 +572,42 @@ func _do_dance(delta: float) -> void:
 		_move()
 		_run_pose(delta)
 		return
-	velocity = to.normalized() * minf(DRIFT_SPEED, d * 3.0) if d > 0.12 else Vector3.ZERO
+	velocity = to.normalized() * minf(travel, d * 3.0) if d > 0.12 else Vector3.ZERO
 	_move()
 	if strike_target != null and is_instance_valid(strike_target):
 		_face(strike_target.global_position, delta)
 	else:
-		_face(global_position + CROWD_DIR, delta)
+		# square up to the other lot, opened out to the audience as far as showmanship takes him
+		var at: Vector3 = manager.crew_centre(1 - team) - global_position
+		at.y = 0.0
+		var w := showmanship * 0.8
+		var dir := CROWD_DIR
+		if at.length() > 0.01:
+			dir = at.normalized() * (1.0 - w) + CROWD_DIR * w
+		_face(global_position + dir, delta)
 	var t := fposmod(float(manager.beat_f) - float(phrase_start) + tempo_err, float(Moves.beats(move)))
 	_apply_pose(Moves.pose(move if joined else "", t), delta)
 
 
-## Home in the team's V; on a strike move an aggressive dancer drifts up to a rival within reach
-## of a kick; a cautious one edges his spot away from rivals.
+## His place in the crew's wedge, wherever the crew has advanced it to; on a strike move an
+## aggressive dancer drifts up to a rival within reach of a kick, and a cautious one edges away.
 func _dance_spot() -> Vector3:
-	var home := Stage.home_spot(team, slot)
+	var home: Vector3 = manager.formation_spot(team, slot)
 	strike_target = null
-	if joined and not Moves.strikes(move).is_empty() and aggression > 0.35:
+	# a crew charge: everyone dances the strike move into the rival the charge named, fanned
+	# round him on the crew's side so every kick on the beat has him in reach
+	if manager.stance[team] == "charge" and not Moves.strikes(move).is_empty():
+		var f = manager.focus[team]
+		if f != null and is_instance_valid(f) and f.ragdoll == null:
+			strike_target = f
+			var back: Vector3 = manager.crew_centre(team) - f.global_position
+			back.y = 0.0
+			if back.length() < 0.01:
+				back = Vector3(_side(), 0, 0)
+			var fan := back.normalized().rotated(Vector3.UP, float(slot - 2) * 0.55)
+			return Stage.clamp_in(f.global_position + fan * 1.3, 0.6)
+	# pressing up close, the crew's hard men kick at whoever is nearest on the strike beats
+	if joined and manager.stance[team] == "press" and not Moves.strikes(move).is_empty() and aggression > 0.5:
 		var best: Dancer = null
 		var best_d := 5.0
 		for e: Dancer in manager.standing(1 - team):
@@ -652,7 +692,8 @@ func _score_block() -> void:
 		q *= 0.3
 		stats["fumbles"] += 1.0
 	q *= 0.5 + 0.5 * float(block_on_time) / float(Moves.BLOCK)
-	q *= 0.6 + 0.4 * maxf(facing().dot(CROWD_DIR), 0.0)
+	# dance at whoever you like; playing it out to the audience earns a little extra
+	q *= 1.0 + Tune.v("crowd_bonus") * maxf(facing().dot(CROWD_DIR), 0.0)
 	var repeats := 0
 	for i in range(0, recent_moves.size() - 1):
 		if recent_moves[i] == move:

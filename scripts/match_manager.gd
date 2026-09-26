@@ -55,6 +55,12 @@ var strike_pts: Array[float] = [0.0, 0.0]
 var knockdowns: Array[int] = [0, 0]
 var totals: Array[float] = [0.0, 0.0]
 var judge_rows: Array = []
+## What each crew is doing as a crew, decided once a phrase: hold the line, press forward, or
+## charge - and while charging, the one rival the whole crew goes for.
+var stance: Array[String] = ["hold", "hold"]
+var focus: Array = [null, null]
+var line: Array[float] = [0.0, 0.0]   # -0.3 backed off .. 1 nose to nose
+var charge_cd: Array[int] = [0, 0]   # phrases before the crew may charge again
 var winner := -1
 var _phase_t := 0.0
 
@@ -90,7 +96,7 @@ func start_match(seed_value: int = -1) -> void:
 			d.persona_name = pname if pname != "" else team_preset_names[t]
 			d.build_name = bname if bname != "" else team_build_names[t]
 			d.position = Stage.home_spot(t, i)
-			d.rotation.y = PI
+			d.rotation.y = (-PI * 0.5) if t == 0 else (PI * 0.5)   # square up to the other lot
 			world.add_child(d)
 			dancers.append(d)
 	for entry in PROP_LAYOUT:
@@ -117,6 +123,10 @@ func start_match(seed_value: int = -1) -> void:
 		strike_pts[t] = 0.0
 		knockdowns[t] = 0
 		totals[t] = 0.0
+		stance[t] = "hold"
+		line[t] = 0.0
+		focus[t] = null
+		charge_cd[t] = 0
 	if stage != null:
 		stage.hide_cards()
 		if not headless:
@@ -170,7 +180,15 @@ func _physics_process(delta: float) -> void:
 
 
 func _on_beat(b: int) -> void:
+	# a charge is a rush at one rival: once he is down the crew struts back and dances at them
+	for t in 2:
+		if stance[t] == "charge":
+			var f = focus[t]
+			if f == null or not is_instance_valid(f) or f.ragdoll != null:
+				stance[t] = "press"
+				focus[t] = null
 	if b % Moves.PHRASE == 0:
+		_update_stances()
 		for t in 2:
 			calls[t] = _captain_call(t)
 			(call_log[t] as Array).append(calls[t])
@@ -202,8 +220,24 @@ func _captain_call(t: int) -> String:
 		for e in dancers:
 			if e.team != t and e.ragdoll == null and d.global_position.distance_to(e.global_position) < 5.0:
 				near = true
+	# a charge is danced: the captain calls a move with kicks or swings in it and the crew
+	# takes it straight into the other lot
+	if stance[t] == "charge":
+		var pool: Array[String] = ["kick_line", "kick_line", "windmill", "leap"]
+		return pool[rng.randi() % pool.size()]
 	var log_t: Array = call_log[t]
 	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2))
+
+
+func _stance_tag(t: int) -> String:
+	if not running:
+		return ""
+	match stance[t]:
+		"charge":
+			return "CHARGE!"
+		"press":
+			return "pressing"
+	return ""
 
 
 func song_length() -> float:
@@ -216,10 +250,84 @@ func _update_board() -> void:
 	if running or not celebrating:
 		var left := maxf(song_length() - elapsed, 0.0)
 		var secs := int(ceil(left))
-		stage.update_board("%d:%02d" % [secs / 60, secs % 60], int(score(0)), int(score(1)), running and left <= 10.0)
+		stage.update_board("%d:%02d" % [secs / 60, secs % 60], int(score(0)), int(score(1)), running and left <= 10.0,
+			[_stance_tag(0), _stance_tag(1)])
 	else:
 		stage.update_board("JUDGING" if celebration_phase == "judging" else "FINAL",
 			int(round(totals[0] / 3.0)), int(round(totals[1] / 3.0)), false)
+
+
+## Where the standing half of a crew is, on average - what the other lot square up to.
+func crew_centre(t: int) -> Vector3:
+	var c := Vector3.ZERO
+	var n := 0
+	for d in dancers:
+		if d.team == t and d.ragdoll == null:
+			c += d.global_position
+			n += 1
+	if n == 0:
+		return Stage.home_spot(t, 0)
+	return c / float(n)
+
+
+## A dancer's spot: his place in the crew's wedge, shifted towards the other lot by how far the
+## crew has advanced. The whole crew moves together, so the two ranks close and part as units.
+func formation_spot(t: int, slot: int) -> Vector3:
+	var home := Stage.home_spot(t, slot)
+	var side := -1.0 if t == 0 else 1.0
+	home.x -= side * line[t] * Tune.v("advance_m")
+	return Stage.clamp_in(home, 0.6)
+
+
+## Once a phrase each crew decides, as a crew, whether to hold its line, press forward or charge.
+## A charge names one rival the whole crew goes for, which is what makes a brawl look like a crew
+## rather than five dancers losing their tempers one at a time. It costs them: nobody scores while
+## they are swinging, and they rejoin the call at the next bar.
+func _update_stances() -> void:
+	for t in 2:
+		var crew := standing(t)
+		if crew.is_empty():
+			stance[t] = "hold"
+			focus[t] = null
+			continue
+		var aggr := 0.0
+		var caut := 0.0
+		for d in crew:
+			aggr += d.aggression
+			caut += d.caution
+		aggr /= float(crew.size())
+		caut /= float(crew.size())
+		# aggressive crews charge on their own; any crew that is losing gets desperate
+		var push := aggr * 1.4 + lead_fraction(1 - t) * 0.8 - caut * 0.9 + Tune.v("press_bias")
+		if push > 0.8 and charge_cd[t] <= 0:
+			stance[t] = "charge"
+			charge_cd[t] = int(Tune.v("charge_rest"))
+		elif push > 0.35:
+			stance[t] = "press"
+			charge_cd[t] -= 1
+		else:
+			stance[t] = "hold"
+			charge_cd[t] -= 1
+		var goal := -0.3 * caut
+		if stance[t] == "charge":
+			goal = 1.0
+		elif stance[t] == "press":
+			goal = 0.6
+		line[t] = lerpf(line[t], goal, 0.5)
+		focus[t] = _pick_focus(t) if stance[t] == "charge" else null
+
+
+## The rival a charging crew goes for: whoever is standing nearest the middle of the crew.
+func _pick_focus(t: int) -> Dancer:
+	var c := crew_centre(t)
+	var best: Dancer = null
+	var best_d := INF
+	for e in standing(1 - t):
+		var dd := c.distance_to(e.global_position)
+		if dd < best_d:
+			best_d = dd
+			best = e
+	return best
 
 
 func team_dancers(t: int) -> Array[Dancer]:

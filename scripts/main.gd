@@ -53,6 +53,14 @@ func _ready() -> void:
 		if args.has(pkey):
 			manager.team_personalities[t] = Personality.preset(String(args[pkey]))
 			manager.team_preset_names[t] = String(args[pkey])
+		var tkey := pkey + "traits"
+		if args.has(tkey):
+			# --redtraits=discipline:0.7,caution:0.5 for character sweeps
+			for kv in String(args[tkey]).split(","):
+				var pr := kv.split(":")
+				if pr.size() == 2:
+					manager.team_personalities[t].set_trait(pr[0], float(pr[1]))
+			manager.team_preset_names[t] = manager.team_personalities[t].label()
 		var bkey := pkey + "build"
 		if args.has(bkey):
 			var gains: Dictionary = manager.team_builds[t].gains

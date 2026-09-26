@@ -7,7 +7,8 @@ extends Node3D
 const HALF_W := 10.0
 const HALF_D := 7.0
 const WALL_H := 6.0
-# a V per team, point towards the crowd
+# a wedge per crew: FORMATION.x spreads it across the stage, FORMATION.z sets how far back
+# each dancer stands from the other lot (the crews face along x, so depth is x and rank is z)
 const FORMATION := [Vector3(0, 0, 0.6), Vector3(-1.7, 0, -0.6), Vector3(1.7, 0, -0.6), Vector3(-3.4, 0, -1.8), Vector3(3.4, 0, -1.8)]
 
 var crowd: Array[Node3D] = []
@@ -30,7 +31,7 @@ func _ready() -> void:
 static func home_spot(team: int, slot: int) -> Vector3:
 	var side := -1.0 if team == 0 else 1.0
 	var o: Vector3 = FORMATION[slot % FORMATION.size()]
-	return Vector3(side * 5.2 + o.x, 0.0, 1.0 + o.z)
+	return Vector3(side * (5.2 - o.z), 0.0, 1.0 + o.x)
 
 
 static func clamp_in(p: Vector3, margin: float = 0.5) -> Vector3:
@@ -145,8 +146,8 @@ func _board_label(pos: Vector3, size: int, col: Color) -> Label3D:
 
 
 ## clock text ("1:23", "JUDGING", "FINAL"), each crew's score, and whether the clock is in its last ten seconds
-func update_board(clock: String, s0: int, s1: int, urgent: bool) -> void:
-	var key := "%s|%d|%d|%s" % [clock, s0, s1, urgent]
+func update_board(clock: String, s0: int, s1: int, urgent: bool, tags: Array = ["", ""]) -> void:
+	var key := "%s|%d|%d|%s|%s|%s" % [clock, s0, s1, urgent, tags[0], tags[1]]
 	if key == _board_key or board_timer == null:
 		return
 	_board_key = key
@@ -154,6 +155,10 @@ func update_board(clock: String, s0: int, s1: int, urgent: bool) -> void:
 	board_timer.modulate = Color(1.0, 0.3, 0.25) if urgent else Color(1.0, 0.92, 0.55)
 	board_scores[0].text = "%s  %d" % [String(MatchManager.TEAM_NAMES[0]).to_upper(), s0]
 	board_scores[1].text = "%d  %s" % [s1, String(MatchManager.TEAM_NAMES[1]).to_upper()]
+	# what each crew is up to as a crew, under its score
+	for t in 2:
+		if String(tags[t]) != "":
+			board_scores[t].text += "\n" + String(tags[t])
 
 
 func _judges() -> void:
