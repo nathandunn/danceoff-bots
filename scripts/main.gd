@@ -88,8 +88,8 @@ func _ready() -> void:
 	_setup_ui_scale()
 	cam = CameraRig.new()
 	add_child(cam)
-	_frame_stage()
-	get_tree().root.size_changed.connect(_frame_stage)
+	get_tree().root.size_changed.connect(_reframe)
+	_reframe()
 	beat = BeatPlayer.new()
 	beat.manager = manager
 	add_child(beat)
@@ -111,16 +111,39 @@ func _ready() -> void:
 	_start_next()
 
 
-## The audience's view: from the bleachers, over the judges, looking up-stage.
+## What the opening view must hold: the box both crews dance in (at their widest, backed off to
+## their back ranks) and the score board on the back wall.
+const FRAME_POINTS := [
+	Vector3(-8.2, 0.0, -3.0), Vector3(8.2, 0.0, -3.0), Vector3(-8.2, 0.0, 5.0), Vector3(8.2, 0.0, 5.0),
+	Vector3(-8.2, 2.4, -3.0), Vector3(8.2, 2.4, -3.0), Vector3(-8.2, 2.4, 5.0), Vector3(8.2, 2.4, 5.0),
+]
+## The board need only be on screen: it may sit behind the dimmed button band.
+const BOARD_POINTS := [
+	Vector3(-6.8, 1.0, -7.8), Vector3(6.8, 1.0, -7.8), Vector3(-6.8, 2.2, -7.8), Vector3(6.8, 2.2, -7.8),
+	Vector3(0.0, 3.3, -7.8),
+]
+
+
+## Frame again once the HUD has laid itself out (its button rows wrap on a narrow screen).
+func _reframe() -> void:
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_frame_stage()
+
+
+## The audience's view, from over the judges, pulled back just far enough that every dancer and the
+## board sit in the part of the screen the buttons leave clear, whatever the window shape.
 func _frame_stage() -> void:
+	if cam == null or cam._cam == null:
+		return
 	var vs := get_viewport().get_visible_rect().size
 	var portrait := vs.y > vs.x
 	cam.yaw = 0.0
-	cam.pitch = 0.9 if portrait else 0.6
-	cam.dist = 30.0 if portrait else 22.0
-	cam._rest_dist = cam.dist
-	if cam._cam != null:
-		cam._cam.keep_aspect = Camera3D.KEEP_WIDTH
+	cam.pitch = 0.95 if portrait else 0.62
+	cam._cam.keep_aspect = Camera3D.KEEP_HEIGHT if portrait else Camera3D.KEEP_WIDTH
+	cam._cam.fov = 50.0 if portrait else 60.0
+	var top := hud.top_band_frac() if hud != null else 0.15
+	cam.fit(FRAME_POINTS, Rect2(0.03, top + 0.02, 0.94, maxf(0.96 - top - 0.02, 0.3)), BOARD_POINTS)
 
 
 func _setup_ui_scale() -> void:
@@ -128,7 +151,11 @@ func _setup_ui_scale() -> void:
 	root.content_scale_mode = Window.CONTENT_SCALE_MODE_DISABLED
 	root.content_scale_aspect = Window.CONTENT_SCALE_ASPECT_IGNORE
 	var dpi := DisplayServer.screen_get_dpi()
-	root.content_scale_factor = clampf(float(dpi) / 96.0, 1.0, 3.0)
+	var sc := clampf(float(dpi) / 96.0, 1.0, 3.0)
+	var short := float(mini(DisplayServer.window_get_size().x, DisplayServer.window_get_size().y))
+	if short > 0.0:
+		sc = clampf(minf(sc, short / 400.0), 1.0, 3.0)
+	root.content_scale_factor = sc
 
 
 func set_sim_speed(s: float) -> void:

@@ -11,7 +11,7 @@ const TIER_PTS := [0.0, 2.0, 4.0, 7.0]     # flair per block at perfect executio
 const FUMBLE := [0.0, 0.04, 0.12, 0.26]    # fumble chance per block, times the build's factor
 
 # moves whose execution depends on the arms (PlayerBuild arm)
-const ARM_MOVES: Array[String] = ["clap_snap", "shimmy", "spin", "jazz_hands", "windmill", "cane_twirl"]
+const ARM_MOVES: Array[String] = ["clap_snap", "shimmy", "spin", "jazz_hands", "windmill", "cane_twirl", "jab_line"]
 
 const BOOK := {
 	"step_touch": {"label": "Step-touch", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
@@ -25,10 +25,13 @@ const BOOK := {
 	"leap": {"label": "Leap", "beats": 4, "tier": 3, "strikes": [2], "strike": "kick", "prop": ""},
 	"windmill": {"label": "Windmill", "beats": 8, "tier": 3, "strikes": [2, 6], "strike": "swing", "prop": ""},
 	"cane_twirl": {"label": "Cane twirl", "beats": 8, "tier": 3, "strikes": [4], "strike": "swing", "prop": "cane"},
+	# fighting that is dancing: a whole crew throwing these together, on the beat, is a routine
+	"spin_kick": {"label": "Spin kick", "beats": 4, "tier": 3, "strikes": [2], "strike": "kick", "prop": ""},
+	"jab_line": {"label": "Jab line", "beats": 8, "tier": 2, "strikes": [1, 3, 5, 7], "strike": "punch", "prop": ""},
 }
 
 const NAMES: Array[String] = ["step_touch", "clap_snap", "shimmy", "spin", "kick_line", "jazz_hands",
-	"grapevine", "knee_slide", "leap", "windmill", "cane_twirl"]
+	"grapevine", "knee_slide", "leap", "windmill", "cane_twirl", "spin_kick", "jab_line"]
 
 
 static func tier(m: String) -> int:
@@ -180,6 +183,33 @@ static func pose(m: String, t: float) -> Dictionary:
 			p["leg_l"] = Vector3(maxf(sin(t * PI), 0.0) * 0.5, 0, 0)
 			p["leg_r"] = Vector3(maxf(-sin(t * PI), 0.0) * 0.5, 0, 0)
 			p["bob"] = pulse * 0.07
+		"spin_kick":
+			# wind up, whip round a full turn so the leg comes out on beat 2 facing the way he
+			# started, then land
+			var u2 := clampf((t - 0.5) / 1.5, 0.0, 1.0)
+			var e2 := u2 * u2 * (3.0 - 2.0 * u2)
+			p["yaw"] = -TAU * e2
+			var ext := clampf(1.0 - absf(t - 2.0) / 0.6, 0.0, 1.0)
+			p["leg_r"] = Vector3(ext * 1.55, 0, ext * 0.35)
+			p["leg_l"] = Vector3(-0.1 * ext, 0, 0)
+			p["arm_l"] = Vector3(0.9, 0, -1.0 - 0.3 * ext)
+			p["arm_r"] = Vector3(0.9, 0, 1.0 + 0.3 * ext)
+			p["tilt"] = -0.25 * ext
+			p["bob"] = 0.15 * sin(e2 * PI)
+		"jab_line":
+			# fists up by the chin; one arm snaps straight out, landing on the beat, left then right
+			var f3 := t - floorf(t)
+			var jab := 0.5 + 0.5 * cos(TAU * f3)
+			var right3 := int(round(t)) % 2 == 1
+			var jr := jab if right3 else 0.0
+			var jl := 0.0 if right3 else jab
+			p["arm_r"] = Vector3(lerpf(1.15, 1.65, jr), 0, lerpf(-0.35, 0.0, jr))
+			p["arm_l"] = Vector3(lerpf(1.15, 1.65, jl), 0, lerpf(0.35, 0.0, jl))
+			p["yaw"] = 0.25 * (jr - jl)
+			p["lean"] = 0.12 * jab
+			p["bob"] = absf(sin(t * PI)) * 0.06
+			p["leg_l"] = Vector3(0.25, 0, 0)
+			p["leg_r"] = Vector3(-0.15, 0, 0)
 		_:
 			# waiting for the next phrase: a bounce on the spot
 			p["bob"] = pulse * 0.03

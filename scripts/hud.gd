@@ -41,6 +41,8 @@ var last_result := {}
 var _updating := false
 var _tick := 0.0
 var _root: Control
+var _row2: Control
+var _band_bg: ColorRect
 
 
 func setup(m: MatchManager) -> void:
@@ -52,6 +54,11 @@ func setup(m: MatchManager) -> void:
 	_root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	_root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_root)
+	_band_bg = ColorRect.new()
+	_band_bg.color = Color(0.03, 0.02, 0.05, 0.55)
+	_band_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_root.add_child(_band_bg)
+	_root.move_child(_band_bg, 0)
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -84,6 +91,7 @@ func setup(m: MatchManager) -> void:
 
 	var row2 := HFlowContainer.new()
 	row2.add_theme_constant_override("h_separation", 6)
+	_row2 = row2
 	vbox.add_child(row2)
 	var pause_btn := Button.new()
 	pause_btn.text = "Pause"
@@ -608,6 +616,9 @@ func _set_speed(s: float) -> void:
 # ---------------------------------------------------------------- live
 
 func _process(delta: float) -> void:
+	if _band_bg != null and _row2 != null:
+		_band_bg.position = Vector2.ZERO
+		_band_bg.size = Vector2(_root.size.x, _row2.get_global_rect().end.y - _root.get_global_rect().position.y + 6.0)
 	_tick -= delta
 	if _tick > 0.0 or manager == null:
 		return
@@ -729,3 +740,12 @@ func show_batch(summary: Dictionary) -> void:
 	l.custom_minimum_size.x = minf(820.0, get_viewport().get_visible_rect().size.x - 70.0)
 	results_box.add_child(l)
 	results_overlay.visible = true
+
+
+## How far down the screen (as a fraction of its height) the score line and the button rows reach,
+## so the camera can keep the dancers clear of them. They wrap onto more lines on a narrow screen.
+func top_band_frac() -> float:
+	if _row2 == null or _root == null or _root.size.y <= 0.0:
+		return 0.15
+	var y := _row2.get_global_rect().end.y - _root.get_global_rect().position.y
+	return clampf(y / _root.size.y, 0.0, 0.5)

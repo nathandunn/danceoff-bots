@@ -63,3 +63,10 @@ After adding a `class_name` script, run `godot --headless --import` once or head
 ## Build and deploy
 `./build.sh` (Godot 4.7.2 + web templates) exports to `dist/`, boots the pack headless and gzips
 the big artefacts; the Dockerfile serves `dist/` with nginx.
+
+## Hats, canes and bloody noses (2026-09-26)
+- Every dancer starts in a hat and with a cane (flair +0.15 and +0.2, times arm skill). A knockdown knocks the hat off; it can be fetched back. Lids and rubber chickens stay on the floor to be thrown.
+- Kicks, spin kicks and punches landed as part of a called move are dance routines and score (`strike_pts` 14). New moves: **Spin kick** (tier 3, strike on beat 2) and **Jab line** (tier 2, jabs on beats 1/3/5/7). Charges call kick line, jab line, spin kick, windmill or leap.
+- A dancer who is hit gets *hurt* (+`hurt_hit` per hit, up to `hurt_max`, healing `hurt_heal` a tick): he moves slower (speed × (1 − hurt)), his timing gets ragged (`hurt_sloppy`), and blood trickles from his nose, with a gush on each hit.
+- The opening camera fits both crews' whole dancing area below the button rows, whatever the screen shape; the board may sit behind the dimmed button band.
+- Round robin after the change (8 songs a pair): Showboat 58, Drill Team 58, Rumbler 60, Hothead 50, Wallflower 52; Balanced (now discipline and showmanship .6) about 45.

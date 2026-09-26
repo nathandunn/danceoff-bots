@@ -25,7 +25,7 @@ const THROW_WINDUP := 0.3
 const THROW_MIN := 2.5
 const THROW_MAX := 12.0
 const PICKUP_RANGE := 0.8
-const STRIKE_REACH := {"kick": 1.7, "swing": 1.9}
+const STRIKE_REACH := {"kick": 1.7, "swing": 1.9, "punch": 1.4}
 const STRIKE_PTS := 5.0
 const FOV_COS := -0.09
 const TIMING_TOL := 0.12
@@ -123,6 +123,11 @@ var arm_r: Node3D
 var leg_l: Node3D
 var leg_r: Node3D
 var hat_anchor: Node3D
+var hat: Prop = null            # on his head; the cane (or whatever he picked up) is `held`
+var hurt := 0.0                 # 0 fresh .. hurt_max: slows him down and roughens his timing
+var _trickle: MeshInstance3D = null
+var _drip: CPUParticles3D = null
+var _blood_mat: StandardMaterial3D
 var hand_anchor: Node3D
 var label: Label3D
 var _mat: StandardMaterial3D
@@ -200,6 +205,33 @@ func _build_body() -> void:
 	var lip := StandardMaterial3D.new()
 	lip.albedo_color = Color(0.6, 0.15, 0.15)
 	_part(_box(Vector3(0.12, 0.03, 0.03)), Vector3(0, 1.58, -0.16), lip)
+	# the nosebleed: a trickle down the face that lengthens with the damage, and drops off the chin
+	_blood_mat = StandardMaterial3D.new()
+	_blood_mat.albedo_color = Color(0.62, 0.02, 0.03)
+	_blood_mat.emission_enabled = true
+	_blood_mat.emission = Color(0.3, 0.0, 0.0)
+	if manager == null or not manager.headless:
+		_trickle = _part(_box(Vector3(0.05, 0.14, 0.02)), Vector3(0, 1.55, -0.163), _blood_mat)
+		_trickle.visible = false
+		_drip = CPUParticles3D.new()
+		_drip.amount = 18
+		_drip.lifetime = 0.7
+		_drip.local_coords = false
+		_drip.direction = Vector3(0, -1, -0.4)
+		_drip.spread = 12.0
+		_drip.initial_velocity_min = 0.4
+		_drip.initial_velocity_max = 1.1
+		_drip.gravity = Vector3(0, -9.8, 0)
+		var dm := SphereMesh.new()
+		dm.radius = 0.025
+		dm.height = 0.05
+		dm.radial_segments = 6
+		dm.rings = 3
+		_drip.mesh = dm
+		_drip.material_override = _blood_mat
+		_drip.position = Vector3(0, 1.6, -0.17)
+		body_root.add_child(_drip)
+		_drip.emitting = false
 	arm_l = _limb(Vector3(-0.35, 1.45, 0), 0.08, 0.56, 0.25)
 	arm_r = _limb(Vector3(0.35, 1.45, 0), 0.08, 0.56, 0.25)
 	leg_l = _limb(Vector3(-0.14, 0.8, 0), 0.1, 0.72, 0.4)
@@ -296,6 +328,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if held != null and is_instance_valid(held):
 		held.global_transform = _hold_transform()
+	if hat != null and is_instance_valid(hat):
+		hat.global_transform = hat_anchor.global_transform
+	if manager.running and hurt > 0.0:
+		hurt = maxf(hurt - Tune.v("hurt_heal") * delta, 0.0)
+	_update_blood()
 	if ragdoll != null:
 		_follow_ragdoll()
 		_down -= delta
@@ -343,6 +380,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _move() -> void:
+	velocity *= 1.0 - hurt   # a battered dancer is a slower one
 	move_and_slide()
 	global_position = Stage.clamp_in(global_position, 0.4)
 
@@ -392,12 +430,12 @@ func _decide() -> void:
 			best = "throw"
 			best_s = float(th[1])
 			best_target = th[0]
-	else:
-		var fc := _fetch_choice()
-		if fc.size() == 2 and float(fc[1]) > best_s:
-			best = "fetch"
-			best_s = float(fc[1])
-			best_prop = fc[0]
+	# a hat for his head if he has lost his, something for his hand if it is empty
+	var fc := _fetch_choice()
+	if fc.size() == 2 and float(fc[1]) > best_s:
+		best = "fetch"
+		best_s = float(fc[1])
+		best_prop = fc[0]
 	_set_action(best, best_target, best_prop)
 
 
@@ -528,6 +566,11 @@ func _fetch_choice() -> Array:
 	var best_s := -INF
 	for p: Prop in manager.props:
 		if not p.is_available():
+			continue
+		if p.kind == Prop.Kind.HAT:
+			if hat != null:
+				continue
+		elif held != null:
 			continue
 		if p.claimed_by != null and p.claimed_by != self and is_instance_valid(p.claimed_by):
 			continue
@@ -665,7 +708,7 @@ func on_beat(b: int, call: String) -> void:
 	# a dancer who stopped mid-phrase may pick the call up again at the next bar
 	if not joined and dancing and b % Moves.BLOCK == 0 and b % Moves.PHRASE != 0 and Tune.v("rejoin_beats") <= 4.0:
 		joined = true
-	tempo_err = tempo_err * 0.7 + rng.randfn(0.0, timing_sigma)
+	tempo_err = tempo_err * 0.7 + rng.randfn(0.0, timing_sigma * (1.0 + Tune.v("hurt_sloppy") * hurt))
 	in_sync = false
 	if dancing and joined:
 		stats["dance_beats"] += 1.0
@@ -699,9 +742,13 @@ func _score_block() -> void:
 		if recent_moves[i] == move:
 			repeats += 1
 	q *= maxf(1.0 - 0.2 * float(repeats), 0.4)
+	# a hat to tip and a cane to twirl: hand work, so arm sets how much each adds
+	var kit := 0.0
+	if hat != null:
+		kit += 0.15
 	if held != null and held.is_dance_prop():
-		# twirling a cane or tipping a hat is hand work: arm sets how much the prop adds
-		q *= 1.0 + 0.35 * clampf(arm_skill, 0.0, 1.5)
+		kit += 0.2
+	q *= 1.0 + kit * clampf(arm_skill, 0.0, 1.5)
 	if String(Moves.BOOK[move]["prop"]) == "cane" and (held == null or held.kind != Prop.Kind.CANE):
 		q *= 0.6
 	if Moves.ARM_MOVES.has(move):
@@ -848,7 +895,10 @@ func _do_fetch(delta: float) -> void:
 	if to.length() <= PICKUP_RANGE:
 		var p := claim
 		p.take(self)
-		held = p
+		if p.kind == Prop.Kind.HAT and hat == null:
+			hat = p
+		else:
+			held = p
 		claim = null
 		stats["pickups"] += 1.0
 		_set_action("dance", null, null)
@@ -959,6 +1009,9 @@ func take_hit(by: Dancer, how: String, dir: Vector3, power: float) -> void:
 	block_ok = false
 	stats["hits_taken"] += 1.0
 	flash(Color(1, 1, 1))
+	# every hit tells: he slows, goes ragged on the beat, and his nose goes
+	hurt = minf(hurt + Tune.v("hurt_hit"), Tune.v("hurt_max"))
+	_gush()
 	var kd := Tune.v("kd_base") + 0.35 * (power - balance_skill)
 	kd = clampf(kd, 0.08, 0.92)
 	if now - _got_up_at < GETUP_GRACE:
@@ -985,6 +1038,10 @@ func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float
 		var h := held
 		held = null
 		h.drop(_hold_transform().origin, flat * 2.0 + Vector3(0, 2.5, 0))
+	if hat != null:
+		var hh := hat
+		hat = null
+		hh.drop(hat_anchor.global_position, flat * 1.5 + Vector3(0, 3.0, 0))
 	if claim != null and is_instance_valid(claim) and claim.claimed_by == self:
 		claim.claimed_by = null
 	claim = null
@@ -1003,6 +1060,50 @@ func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float
 	if ragdoll != null:
 		ragdoll.shove(flat * (16.0 + 10.0 * clampf(power, 0.0, 1.5)) + Vector3(0, 6.0 + rng.randf() * 3.0, 0))
 	_stars(global_position + Vector3(0, 1.5, 0))
+
+
+## The nosebleed follows the damage: the trickle lengthens with it and drips while it is bad.
+func _update_blood() -> void:
+	if _trickle == null:
+		return
+	var bleeding := hurt > 0.02
+	_trickle.visible = bleeding
+	if bleeding:
+		var k := clampf(hurt / 0.3, 0.35, 1.6)
+		_trickle.scale = Vector3(1.0, k, 1.0)
+		_trickle.position.y = 1.62 - 0.07 * k
+	if _drip != null:
+		_drip.emitting = hurt > 0.05
+
+
+## A spray from the nose the moment a hit lands.
+func _gush() -> void:
+	if manager == null or manager.world == null or manager.headless or body_root == null:
+		return
+	var p := CPUParticles3D.new()
+	p.emitting = false
+	p.one_shot = true
+	p.amount = 28
+	p.lifetime = 0.9
+	p.explosiveness = 0.85
+	p.direction = facing() + Vector3(0, 0.3, 0)
+	p.spread = 35.0
+	p.initial_velocity_min = 1.5
+	p.initial_velocity_max = 3.5
+	p.gravity = Vector3(0, -9.8, 0)
+	p.scale_amount_min = 0.5
+	p.scale_amount_max = 1.2
+	var m := SphereMesh.new()
+	m.radius = 0.035
+	m.height = 0.07
+	m.radial_segments = 6
+	m.rings = 3
+	p.mesh = m
+	p.material_override = _blood_mat
+	manager.world.add_child(p)
+	p.global_position = body_root.to_global(Vector3(0, 1.62, -0.17))
+	p.emitting = true
+	get_tree().create_timer(1.3).timeout.connect(p.queue_free)
 
 
 func _stars(at: Vector3) -> void:
@@ -1204,6 +1305,9 @@ func cleanup() -> void:
 	if held != null and is_instance_valid(held):
 		held.holder = null
 	held = null
+	if hat != null and is_instance_valid(hat):
+		hat.holder = null
+	hat = null
 	if ragdoll != null and is_instance_valid(ragdoll):
 		ragdoll.queue_free()
 	ragdoll = null

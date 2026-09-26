@@ -20,7 +20,7 @@ const PRESETS := {
 	"Rumbler":    {"aggression": 0.90, "showmanship": 0.35, "discipline": 0.60, "grudge": 0.60, "caution": 0.20, "teamwork": 0.60},
 	"Hothead":    {"aggression": 0.60, "showmanship": 0.55, "discipline": 0.40, "grudge": 0.95, "caution": 0.15, "teamwork": 0.30},
 	"Wallflower": {"aggression": 0.05, "showmanship": 0.45, "discipline": 0.80, "grudge": 0.10, "caution": 0.95, "teamwork": 0.30},
-	"Balanced":   {"aggression": 0.50, "showmanship": 0.50, "discipline": 0.50, "grudge": 0.50, "caution": 0.50, "teamwork": 0.50},
+	"Balanced":   {"aggression": 0.50, "showmanship": 0.60, "discipline": 0.60, "grudge": 0.50, "caution": 0.50, "teamwork": 0.50},
 }
 
 var traits: Dictionary = {}

@@ -19,10 +19,10 @@ const JUDGE_NOISE := 0.04
 const JUDGING_TIME := 2.5
 const CHEER_TIME := 5.0
 # kind (Prop.Kind), where it starts
+# (everyone starts with a hat and a cane of his own; these are the things lying about to throw)
 const PROP_LAYOUT := [
-	[0, Vector3(-1.2, 0, -4.6)], [0, Vector3(1.2, 0, -4.6)],
-	[1, Vector3(-3.0, 0, 4.2)], [1, Vector3(3.0, 0, 4.2)],
 	[2, Vector3(0, 0, 1.2)], [3, Vector3(0, 0, -2.0)],
+	[2, Vector3(0, 0, -5.2)], [3, Vector3(0, 0, 5.0)],
 ]
 
 var world: Node3D
@@ -107,6 +107,21 @@ func start_match(seed_value: int = -1) -> void:
 		p.position = p.home + Vector3(0, 0.3, 0)
 		world.add_child(p)
 		props.append(p)
+	# everyone starts dressed for it: a hat on his head and a cane in his hand
+	for d in dancers:
+		for k in [Prop.Kind.HAT, Prop.Kind.CANE]:
+			var kp := Prop.new()
+			kp.kind = k
+			kp.manager = self
+			kp.home = d.position
+			kp.position = d.position + Vector3(0, 1.2, 0)
+			world.add_child(kp)
+			props.append(kp)
+			kp.take(d)
+			if k == Prop.Kind.HAT:
+				d.hat = kp
+			else:
+				d.held = kp
 	elapsed = 0.0
 	beat_f = 0.0
 	beat_i = -1
@@ -223,7 +238,7 @@ func _captain_call(t: int) -> String:
 	# a charge is danced: the captain calls a move with kicks or swings in it and the crew
 	# takes it straight into the other lot
 	if stance[t] == "charge":
-		var pool: Array[String] = ["kick_line", "kick_line", "windmill", "leap"]
+		var pool: Array[String] = ["kick_line", "kick_line", "jab_line", "jab_line", "spin_kick", "windmill", "leap"]
 		return pool[rng.randi() % pool.size()]
 	var log_t: Array = call_log[t]
 	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2))

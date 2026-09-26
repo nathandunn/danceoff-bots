@@ -13,8 +13,9 @@ var _touches := {}
 var _pinch_d := 0.0
 # optional focus (the winners' celebration): the rig glides to the point and the
 # auto-zoom tightens; a user who is dragging or pinching keeps their own zoom
-var _focus := Vector3(0, 1.0, 0)
-var _focus_target := Vector3(0, 1.0, 0)
+var home := Vector3(0, 1.0, 1.0)   # where the view rests: the middle of the dancers
+var _focus := Vector3(0, 1.0, 1.0)
+var _focus_target := Vector3(0, 1.0, 1.0)
 var _focus_dist := -1.0
 var _rest_dist := 27.0  # the zoom the user last chose; the view returns to it after a celebration
 
@@ -49,13 +50,55 @@ func set_focus(point: Vector3, want_dist: float = -1.0) -> void:
 
 
 func clear_focus() -> void:
-	_focus_target = Vector3(0, 1.0, 0)
+	_focus_target = home
 	_focus_dist = _rest_dist if absf(dist - _rest_dist) > 0.5 else -1.0
+
+
+## Pull back (or in) until every point sits inside `free`, a rectangle in fractions of the screen
+## (0..1 each way): the part the HUD leaves clear. A binary search on the distance.
+func fit(points: Array, free: Rect2, loose_points: Array = [], loose := Rect2(0.02, 0.02, 0.96, 0.96)) -> void:
+	if _cam == null or not is_inside_tree():
+		return
+	var vp := get_viewport().get_visible_rect().size
+	if vp.x <= 0.0 or vp.y <= 0.0:
+		return
+	_focus = home
+	_focus_target = home
+	var lo := 6.0
+	var hi := 90.0
+	for i in 20:
+		dist = (lo + hi) * 0.5
+		_apply()
+		var ok := true
+		for pt in points:
+			var p3: Vector3 = pt
+			if _cam.is_position_behind(p3):
+				ok = false
+				break
+			var s := _cam.unproject_position(p3) / vp
+			if not free.has_point(s):
+				ok = false
+				break
+		if ok:
+			for pt in loose_points:
+				var q3: Vector3 = pt
+				if _cam.is_position_behind(q3) or not loose.has_point(_cam.unproject_position(q3) / vp):
+					ok = false
+					break
+		if ok:
+			hi = dist
+		else:
+			lo = dist
+	dist = hi
+	_rest_dist = dist
+	_focus_dist = -1.0
+	idle = 0.0
+	_apply()
 
 
 func _apply() -> void:
 	pitch = clampf(pitch, 0.15, 1.45)
-	dist = clampf(dist, 10.0, 70.0)
+	dist = clampf(dist, 6.0, 90.0)
 	var p := Vector3(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch)) * dist
 	_cam.position = _focus + p
 	_cam.look_at(_focus, Vector3.UP)

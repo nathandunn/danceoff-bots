@@ -12,7 +12,7 @@ const DEFAULTS := {
 	"kd_base": 0.38,         # knockdown chance at equal strength and balance
 	"down_mult": 1.0,       # scale on time spent on the floor
 	"rejoin_beats": 4.0,    # a dancer who stopped rejoins at the next phrase (8) or bar (4)
-	"strike_pts": 10.0,      # flair for a dance-strike that lands
+	"strike_pts": 14.0,      # flair for a dance-strike that lands
 	"press_bias": 0.0,      # added to every crew's urge to move up on the other lot
 	"charge_bonus": 0.5,    # extra pull for a hothead to throw a punch at the charge's target too
 	"retort_s": 4.0,        # outside a charge, a dancer only punches someone who hit him this recently
@@ -20,6 +20,10 @@ const DEFAULTS := {
 	"charge_rest": 1.0,     # phrases a crew dances before it may charge again
 	"charge_speed": 3.2,    # m/s a charging crew travels while still dancing the move
 	"crowd_bonus": 0.1,    # extra flair, at most, for dancing it out to the audience
+	"hurt_hit": 0.12,       # how much slower (and sloppier) each hit taken leaves a dancer
+	"hurt_max": 0.6,        # the most a dancer can be slowed
+	"hurt_heal": 0.006,     # per second he mends
+	"hurt_sloppy": 0.5,     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
 }
 
 static var values := DEFAULTS.duplicate()
