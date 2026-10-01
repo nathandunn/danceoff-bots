@@ -351,6 +351,9 @@ func _dress(accent: Color, stripe_mat: StandardMaterial3D, ink: StandardMaterial
 	_dec(upper, _box(Vector3(0.28, 0.06, 0.2)), Vector3(0, 0.62, 0), white)
 	_dec(upper, _box(Vector3(0.52, 0.07, 0.32)), Vector3(0, 0.03, 0), _flat(Color(0.06, 0.06, 0.07)))
 	_dec(upper, _box(Vector3(0.09, 0.06, 0.02)), Vector3(0, 0.03, -0.165), _flat(Color(0.95, 0.8, 0.25)))
+	# hips and seat, so a twerk has something to shake
+	_dec(body_root, _box(Vector3(0.48, 0.16, 0.3)), Vector3(0, 0.77, 0.01), _trouser_mat)
+	_dec(body_root, _box(Vector3(0.44, 0.2, 0.12)), Vector3(0, 0.74, 0.14), _trouser_mat)
 	# trouser stripes, thigh and shin, outer side
 	for pair in [[leg_l, shin_l, -1.0], [leg_r, shin_r, 1.0]]:
 		_dec(pair[0], _box(Vector3(0.02, 0.38, 0.05)), Vector3(pair[2] * 0.1, -0.2, 0), stripe_mat)
@@ -759,6 +762,9 @@ func _do_dance(delta: float) -> void:
 		var dir := CROWD_DIR
 		if at.length() > 0.01:
 			dir = at.normalized() * (1.0 - w) + CROWD_DIR * w
+		# a twerk is danced with the back to them
+		if joined and Moves.REAR.has(move):
+			dir = -dir
 		_face(global_position + dir, delta)
 	var t := fposmod(float(manager.beat_f) - float(phrase_start) + tempo_err, float(Moves.beats(move)))
 	_apply_pose(Moves.pose(move if joined else "", t), delta)
@@ -771,6 +777,16 @@ func _dance_spot() -> Vector3:
 	strike_target = null
 	# a crew charge: everyone dances the strike move into the rival the charge named, fanned
 	# round him on the crew's side so every kick on the beat has him in reach
+	if manager.stance[team] == "charge" and not Moves.strikes(move).is_empty() and manager.charge_mode[team] == "line":
+		var mine: Dancer = manager.matchup_for(self)
+		if mine != null:
+			strike_target = mine
+			var toward: Vector3 = manager.crew_centre(team) - mine.global_position
+			toward.y = 0.0
+			if absf(toward.x) < 0.01:
+				toward = Vector3(_side(), 0, 0)
+			# square up to him from our side of the stage, so the two lines face each other
+			return Stage.clamp_in(mine.global_position + Vector3(signf(toward.x), 0, 0) * 1.3, 0.6)
 	if manager.stance[team] == "charge" and not Moves.strikes(move).is_empty():
 		var f = manager.focus[team]
 		if f != null and is_instance_valid(f) and f.ragdoll == null:
@@ -868,7 +884,7 @@ func _score_block() -> void:
 		stats["fumbles"] += 1.0
 	q *= 0.5 + 0.5 * float(block_on_time) / float(Moves.BLOCK)
 	# dance at whoever you like; playing it out to the audience earns a little extra
-	q *= 1.0 + Tune.v("crowd_bonus") * maxf(facing().dot(CROWD_DIR), 0.0)
+	q *= 1.0 + Tune.v("crowd_bonus") * maxf((-facing() if Moves.REAR.has(move) else facing()).dot(CROWD_DIR), 0.0)
 	var repeats := 0
 	for i in range(0, recent_moves.size() - 1):
 		if recent_moves[i] == move:

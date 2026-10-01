@@ -96,6 +96,7 @@ func _ready() -> void:
 	hud = Hud.new()
 	add_child(hud)
 	hud.setup(manager)
+	hud.band_resized.connect(_reframe)
 	hud.new_match_requested.connect(func(): batch_left = 0; batch_results.clear(); _start_next())
 	hud.batch_requested.connect(_run_batch)
 	hud.speed_changed.connect(set_sim_speed)

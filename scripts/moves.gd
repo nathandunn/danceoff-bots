@@ -11,7 +11,7 @@ const TIER_PTS := [0.0, 2.0, 4.0, 7.0]     # flair per block at perfect executio
 const FUMBLE := [0.0, 0.04, 0.12, 0.26]    # fumble chance per block, times the build's factor
 
 # moves whose execution depends on the arms (PlayerBuild arm)
-const ARM_MOVES: Array[String] = ["clap_snap", "shimmy", "spin", "jazz_hands", "windmill", "cane_twirl", "jab_line", "disco_point", "robot", "charleston", "twerk", "hip_roll", "booty_drop"]
+const ARM_MOVES: Array[String] = ["clap_snap", "shimmy", "spin", "jazz_hands", "windmill", "cane_twirl", "jab_line", "disco_point", "robot", "charleston", "twerk", "hip_roll", "booty_drop", "krump", "dougie", "shmoney"]
 
 const BOOK := {
 	"step_touch": {"label": "Step-touch", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
@@ -58,6 +58,15 @@ const BOOK := {
 	"soft_shoe": {"label": "Soft shoe", "beats": 8, "tier": 1, "strikes": [], "strike": "", "prop": ""},
 	"hat_tip_bow": {"label": "Hat tip and bow", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
 	"buck_and_wing": {"label": "Buck and wing", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	# gritty street: krump, jerkin', the Dougie and the rest
+	"stanky_leg": {"label": "Stanky leg", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
+	"jerk": {"label": "Jerk", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
+	"shmoney": {"label": "Shmoney", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
+	"dougie": {"label": "Dougie", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"running_man": {"label": "Running man", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"harlem_shake": {"label": "Harlem shake", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"back_it_up": {"label": "Back it up", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"krump": {"label": "Krump", "beats": 8, "tier": 3, "strikes": [2, 6], "strike": "punch", "prop": ""},
 }
 
 ## Every move belongs to a style. Captains mix them up, and a crew whose last four calls cover several
@@ -66,7 +75,8 @@ const STYLE := {
 	"step_touch": "street", "spin": "street", "knee_slide": "street", "windmill": "street", "spin_kick": "street",
 	"jab_line": "street", "the_twist": "street", "disco_point": "street", "robot": "street", "moonwalk": "street",
 	"twerk": "street", "booty_drop": "street", "low_bounce": "street", "drop_and_pop": "street", "duck_walk": "street",
-	"floor_shake": "street",
+	"floor_shake": "street", "stanky_leg": "street", "jerk": "street", "shmoney": "street", "dougie": "street",
+	"running_man": "street", "harlem_shake": "street", "back_it_up": "street", "krump": "street",
 	"leap": "ballet", "plie_port": "ballet", "pirouette": "ballet", "arabesque": "ballet", "grand_jete": "ballet",
 	"shimmy": "burlesque", "hip_roll": "burlesque", "wind_it_down": "burlesque", "hip_bump": "burlesque",
 	"shoulder_tease": "burlesque", "slow_strut": "burlesque",
@@ -77,11 +87,17 @@ const STYLE := {
 const STYLES: Array[String] = ["street", "ballet", "burlesque", "cheer", "vaudeville"]
 
 # the drop family: crews favour these, and showmen most of all
+## The gritty end of the street: hip-shakers and battle moves. Crews call these far more often.
+const GRITTY: Array[String] = ["twerk", "back_it_up", "booty_drop", "floor_shake", "low_bounce", "drop_and_pop",
+	"stanky_leg", "jerk", "shmoney", "dougie", "running_man", "harlem_shake", "krump", "hip_roll", "wind_it_down"]
+## Moves danced with the backside to whoever he'd otherwise face (the crowd, or the other lot as a taunt).
+const REAR: Array[String] = ["twerk", "back_it_up", "low_bounce"]
 const DROPS: Array[String] = ["hip_roll", "twerk", "booty_drop", "low_bounce", "drop_and_pop", "wind_it_down", "duck_walk", "floor_shake",
-	"plie_port", "pirouette", "arabesque", "grand_jete", "hip_bump", "shoulder_tease", "slow_strut", "high_v", "clap_punch", "herkie", "toe_touch", "soft_shoe", "hat_tip_bow", "buck_and_wing"]
+	"plie_port", "pirouette", "arabesque", "grand_jete", "hip_bump", "shoulder_tease", "slow_strut", "high_v", "clap_punch", "herkie", "toe_touch", "soft_shoe", "hat_tip_bow", "buck_and_wing",
+	"stanky_leg", "jerk", "shmoney", "dougie", "running_man", "harlem_shake", "back_it_up", "krump"]
 
 # how much of the all-purpose groove (knee give, head nod, shoulder roll) each move keeps
-const GROOVE := {"knee_slide": 0.0, "leap": 0.0, "spin_kick": 0.0, "moonwalk": 0.0, "cancan": 0.0, "twerk": 0.0, "booty_drop": 0.0, "plie_port": 0.0, "pirouette": 0.0, "arabesque": 0.0, "grand_jete": 0.0, "toe_touch": 0.0, "herkie": 0.0, "hat_tip_bow": 0.0, "low_bounce": 0.0, "drop_and_pop": 0.0, "wind_it_down": 0.0, "duck_walk": 0.0, "floor_shake": 0.0, "robot": 0.2}
+const GROOVE := {"knee_slide": 0.0, "leap": 0.0, "spin_kick": 0.0, "moonwalk": 0.0, "cancan": 0.0, "twerk": 0.0, "booty_drop": 0.0, "plie_port": 0.0, "pirouette": 0.0, "arabesque": 0.0, "grand_jete": 0.0, "toe_touch": 0.0, "herkie": 0.0, "hat_tip_bow": 0.0, "krump": 0.0, "running_man": 0.0, "back_it_up": 0.0, "harlem_shake": 0.0, "low_bounce": 0.0, "drop_and_pop": 0.0, "wind_it_down": 0.0, "duck_walk": 0.0, "floor_shake": 0.0, "robot": 0.2}
 
 const NAMES: Array[String] = ["step_touch", "clap_snap", "shimmy", "spin", "kick_line", "jazz_hands",
 	"grapevine", "knee_slide", "leap", "windmill", "cane_twirl", "spin_kick", "jab_line", "the_twist", "disco_point", "robot", "charleston", "moonwalk", "cancan", "hip_roll", "twerk", "booty_drop", "low_bounce", "drop_and_pop", "wind_it_down", "duck_walk", "floor_shake"]
@@ -121,14 +137,16 @@ static func choose(rng: RandomNumberGenerator, show: float, aggr: float, rivals_
 	var names: Array[String] = []
 	var weights: Array[float] = []
 	var total := 0.0
-	for m: String in NAMES:
+	for m: String in BOOK.keys():
 		var tr := tier(m)
 		var w := 1.0 + show * float(tr - 1) * 1.2 - (1.0 - show) * float(tr - 1) * 0.45
 		w = maxf(w, 0.05)
-		if DROPS.has(m):
-			w *= 1.1 + 0.4 * show
+		if GRITTY.has(m):
+			w *= 1.8 + 1.0 * show
+		if REAR.has(m):
+			w *= 2.0
 		if last_style != "" and style(m) == last_style:
-			w *= 0.3
+			w *= 0.6 if last_style == "street" else 0.3
 		if not strikes(m).is_empty():
 			w *= 1.0 + aggr * (1.6 if rivals_near else 0.25)
 		if String(BOOK[m]["prop"]) == "cane":
@@ -379,22 +397,157 @@ static func pose(m: String, t: float) -> Dictionary:
 			p["elbow_r"] = 1.5
 			p["turn"] = sin(ang) * 0.3
 		"twerk":
-			# deep squat, hands on knees, hips rattling twice a beat while the shoulders stay put, a glance back
-			var tk := sin(t * TAU * 2.0)
-			p["tilt"] = tk * 0.18
-			p["counter"] = -tk * 0.17
-			p["hunch"] = 0.55
-			p["leg_l"] = Vector3(0.7, 0, 0.12)
-			p["leg_r"] = Vector3(0.7, 0, -0.12)
-			p["knee_l"] = 1.4
-			p["knee_r"] = 1.4
-			p["bob"] = -0.76 * (1.0 - cos(0.7)) + absf(tk) * 0.04
-			p["arm_l"] = Vector3(0.7, 0, -0.15)
-			p["arm_r"] = Vector3(0.7, 0, 0.15)
-			p["elbow_l"] = 0.0
-			p["elbow_r"] = 0.0
-			p["nod"] = -0.45
-			p["turn"] = sin(t * PI * 0.5) * 0.5
+			# bent right over, hands on the knees, the backside bouncing twice a beat and rolling side
+			# to side while the shoulders hold still (danced with his back to the house: Moves.REAR)
+			var tb := absf(sin(t * TAU * 2.0))
+			var tr := sin(t * TAU)
+			_low(p, 0.8, 0.85)
+			p["bob"] = float(p["bob"]) + tb * 0.09
+			p["tilt"] = tr * 0.2
+			p["counter"] = -tr * 0.2
+			p["hunch"] = 0.85 - tb * 0.15
+			p["arm_l"] = Vector3(1.0, 0, -0.2)
+			p["arm_r"] = Vector3(1.0, 0, 0.2)
+			p["nod"] = -0.6
+			p["turn"] = 0.6 * sin(t * PI * 0.5)
+		"back_it_up":
+			# the twerk walked backwards at the other lot, looking back over the shoulder
+			var bb := absf(sin(t * TAU * 2.0))
+			var bs := sin(t * TAU)
+			_low(p, 0.7, 0.75)
+			p["bob"] = float(p["bob"]) + bb * 0.08
+			p["tilt"] = bs * 0.18
+			p["counter"] = -bs * 0.18
+			p["glide"] = 0.35 * sin(t * PI * 0.25)
+			p["arm_l"] = Vector3(0.9, 0, -0.2)
+			p["arm_r"] = Vector3(0.3, 0, 0.5)
+			p["elbow_r"] = 1.5
+			p["turn"] = 1.1
+			p["nod"] = -0.3
+		"stanky_leg":
+			# one foot planted, the other leg out to the side with the knee rolling in and out
+			var sk := sin(t * TAU)
+			p["leg_r"] = Vector3(0.15, 0, 0.3 + 0.15 * sk)
+			p["knee_r"] = 0.7 + 0.3 * sk
+			p["leg_l"] = Vector3(0.1, 0, 0.0)
+			p["knee_l"] = 0.3
+			p["sway"] = 0.12 * sk
+			p["tilt"] = -0.12 * sk
+			p["counter"] = 0.1 * sk
+			p["arm_l"] = Vector3(0.6, 0, -0.7)
+			p["arm_r"] = Vector3(0.6, 0, 0.7)
+			p["elbow_l"] = 1.3
+			p["elbow_r"] = 1.3
+			p["bob"] = -0.05
+		"jerk":
+			# knees bent, swaying, knees pivoting in and out, arms level with the chest
+			var jk := sin(t * PI)
+			_low(p, 0.35, 0.1)
+			p["leg_l"] = Vector3(0.35, 0, -0.25 * jk)
+			p["leg_r"] = Vector3(0.35, 0, -0.25 * jk)
+			p["sway"] = 0.25 * jk
+			p["counter"] = -0.12 * jk
+			p["arm_l"] = Vector3(1.4, 0, -0.3)
+			p["arm_r"] = Vector3(1.4, 0, 0.3)
+			p["elbow_l"] = 1.0
+			p["elbow_r"] = 1.0
+			p["nod"] = 0.1 + 0.1 * absf(jk)
+		"shmoney":
+			# hip cocked, arms crossed in an X, then swung open, elbows bent
+			var sm := 0.5 - 0.5 * cos(t * TAU)
+			p["tilt"] = 0.15
+			p["sway"] = 0.12 * sin(t * PI)
+			p["arm_l"] = Vector3(1.1, 0, lerpf(0.55, -0.8, sm))
+			p["arm_r"] = Vector3(1.1, 0, lerpf(-0.55, 0.8, sm))
+			p["elbow_l"] = 1.3
+			p["elbow_r"] = 1.3
+			p["leg_l"] = Vector3(0.2 * sm, 0, 0)
+			p["knee_l"] = 0.4 * sm
+			p["turn"] = -0.3
+		"dougie":
+			# a lean-back sway, one arm pumping, the other hand slicking the hair back
+			var dg := sin(t * PI)
+			p["sway"] = 0.3 * dg
+			p["tilt"] = -0.14 * dg
+			p["counter"] = 0.12 * dg
+			p["hunch"] = -0.12
+			p["arm_r"] = Vector3(0.8 + 0.4 * absf(dg), 0, 0.5)
+			p["elbow_r"] = 1.4
+			var slick := clampf(fposmod(t, 2.0) / 1.0, 0.0, 1.0)
+			p["arm_l"] = Vector3(lerpf(2.2, 3.0, slick), 0, -0.3)
+			p["elbow_l"] = lerpf(1.9, 1.2, slick)
+			p["turn"] = 0.4 * dg
+			p["nod"] = -0.2
+		"running_man":
+			# a knee up to the hip, the other foot sliding back, arms pumping, on the spot
+			var rm := sin(t * TAU * 0.5)
+			var lu := maxf(rm, 0.0)
+			var ru := maxf(-rm, 0.0)
+			p["leg_l"] = Vector3(1.5 * lu - 0.35 * ru, 0, 0)
+			p["leg_r"] = Vector3(1.5 * ru - 0.35 * lu, 0, 0)
+			p["knee_l"] = 1.5 * lu
+			p["knee_r"] = 1.5 * ru
+			p["bob"] = 0.05 * absf(rm)
+			p["arm_l"] = Vector3(-0.6 * rm + 0.3, 0, -0.2)
+			p["arm_r"] = Vector3(0.6 * rm + 0.3, 0, 0.2)
+			p["elbow_l"] = 1.4
+			p["elbow_r"] = 1.4
+		"harlem_shake":
+			# loose and convulsive: shoulders jerking, knees knocking, arms flung about
+			var hs := sin(t * TAU * 4.0)
+			var hx := sin(t * TAU * 1.5)
+			p["counter"] = hs * 0.3
+			p["tilt"] = hx * 0.1
+			p["hunch"] = 0.15 + 0.1 * hs
+			_low(p, 0.3 + 0.1 * absf(hs), 0.15 + 0.1 * hs)
+			p["arm_l"] = Vector3(1.2 + 0.8 * hx, 0, -0.6 - 0.3 * hs)
+			p["arm_r"] = Vector3(1.2 - 0.8 * hx, 0, 0.6 + 0.3 * hs)
+			p["elbow_l"] = 0.8 + 0.5 * hs
+			p["elbow_r"] = 0.8 - 0.5 * hs
+			p["nod"] = 0.2 * hs
+			p["turn"] = 0.3 * hx
+		"krump":
+			# a stomp, a chest pop, a big arm swing and a two-fisted jab at the other lot on 2 and 6
+			var kb := int(floor(t)) % 4
+			var kf := t - floorf(t)
+			var hit := clampf(1.0 - kf / 0.35, 0.0, 1.0)
+			p["elbow_l"] = 1.2
+			p["elbow_r"] = 1.2
+			p["leg_l"] = Vector3(0.25, 0, -0.18)
+			p["leg_r"] = Vector3(0.25, 0, 0.18)
+			p["knee_l"] = 0.5
+			p["knee_r"] = 0.5
+			p["bob"] = -0.06
+			match kb:
+				0:
+					# stomp: the right foot comes up and is driven into the floor on the beat
+					p["leg_r"] = Vector3(0.9 * (1.0 - hit), 0, 0.18)
+					p["knee_r"] = 1.4 * (1.0 - hit)
+					p["bob"] = -0.06 - 0.05 * hit
+					p["hunch"] = 0.35
+					p["arm_l"] = Vector3(0.6, 0, -0.9)
+					p["arm_r"] = Vector3(0.6, 0, 0.9)
+				1:
+					# chest pop
+					p["hunch"] = -0.35 * hit
+					p["arm_l"] = Vector3(0.3, 0, -1.0)
+					p["arm_r"] = Vector3(0.3, 0, 1.0)
+					p["elbow_l"] = 1.6
+					p["elbow_r"] = 1.6
+				2:
+					# the jab: both fists straight out at whoever he's facing
+					p["arm_l"] = Vector3(1.55, 0, 0.1)
+					p["arm_r"] = Vector3(1.55, 0, -0.1)
+					p["elbow_l"] = 1.6 * (1.0 - hit)
+					p["elbow_r"] = 1.6 * (1.0 - hit)
+					p["hunch"] = 0.3 * hit
+				_:
+					# the arm swing, like a bat
+					p["arm_r"] = Vector3(fposmod(kf * TAU + 1.0, TAU), 0, 0.4)
+					p["elbow_r"] = 0.2
+					p["arm_l"] = Vector3(0.5, 0, -0.8)
+					p["twist"] = -0.5 + kf
+			p["nod"] = 0.15
 		"booty_drop":
 			# drop to the floor, bounce and shake it down there, then climb back up on the last beat
 			var bl := clampf(t / 0.8, 0.0, 1.0) if t < 3.0 else clampf((4.0 - t) / 0.8, 0.0, 1.0)

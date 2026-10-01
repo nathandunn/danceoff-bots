@@ -49,6 +49,7 @@ var match_index := 0
 var rng := RandomNumberGenerator.new()
 var calls: Array[String] = ["step_touch", "step_touch"]
 var call_log: Array = [[], []]
+var plan: Array = [[], []]      # each captain's next few calls, worked out ahead and shown on screen
 var sync_pts: Array[float] = [0.0, 0.0]
 var flair_pts: Array[float] = [0.0, 0.0]
 var strike_pts: Array[float] = [0.0, 0.0]
@@ -60,7 +61,9 @@ var judge_rows: Array = []
 var stance: Array[String] = ["hold", "hold"]
 var focus: Array = [null, null]
 var line: Array[float] = [0.0, 0.0]   # -0.3 backed off .. 1 nose to nose
-var charge_cd: Array[int] = [0, 0]   # phrases before the crew may charge again
+var charge_cd: Array[int] = [0, 0]
+var charge_mode: Array[String] = ["gang", "gang"]   # gang: all on one rival; line: each on his own man
+var matchup: Array = [{}, {}]   # phrases before the crew may charge again
 var winner := -1
 var _phase_t := 0.0
 
@@ -134,6 +137,7 @@ func start_match(seed_value: int = -1) -> void:
 	winner = -1
 	calls = ["step_touch", "step_touch"]
 	call_log = [[], []]
+	plan = [[], []]
 	judge_rows = []
 	for t in 2:
 		sync_pts[t] = 0.0
@@ -201,15 +205,22 @@ func _on_beat(b: int) -> void:
 	# a charge is a rush at one rival: once he is down the crew struts back and dances at them
 	for t in 2:
 		if stance[t] == "charge":
-			var f = focus[t]
-			if f == null or not is_instance_valid(f) or f.ragdoll != null:
-				stance[t] = "press"
-				focus[t] = null
+			if charge_mode[t] == "line":
+				# a line charge ends when most of the other lot are on the floor
+				if standing(1 - t).size() <= 2:
+					stance[t] = "press"
+			else:
+				var f = focus[t]
+				if f == null or not is_instance_valid(f) or f.ragdoll != null:
+					stance[t] = "press"
+					focus[t] = null
 	if b % Moves.PHRASE == 0:
 		_update_stances()
 		for t in 2:
 			calls[t] = _captain_call(t)
 			(call_log[t] as Array).append(calls[t])
+			if OS.has_environment("DOCALLS"):
+				print("CALL %d %s %s" % [t, calls[t], stance[t] + ("/" + charge_mode[t] if stance[t] == "charge" else "")])
 	for d in dancers:
 		d.on_beat(b, calls[d.team])
 	for t in 2:
@@ -228,6 +239,32 @@ func style_mix(t: int) -> float:
 	for m in log_t.slice(-4):
 		seen[Moves.style(String(m))] = true
 	return clampf(float(seen.size() - 1) / 3.0, 0.0, 1.0)
+
+
+const PLAN_AHEAD := 3
+
+
+## The routine for the HUD: the move being danced now, then the planned ones.
+func routine_text(t: int) -> String:
+	var now := String(Moves.BOOK[calls[t]]["label"]).to_upper() if Moves.BOOK.has(calls[t]) else ""
+	var nxt := PackedStringArray()
+	for m in plan[t]:
+		nxt.append(String(Moves.BOOK[m]["label"]))
+	var s := "\u00BB %s (%s)" % [now, Moves.style(calls[t])]
+	if stance[t] == "charge":
+		s += " - " + _stance_tag(t)
+	if not nxt.is_empty():
+		s += "   next: " + " \u203A ".join(nxt)
+	return s
+
+
+## The phone version: crew, score, the move now and the next three, all on one short line.
+func routine_short(t: int) -> String:
+	var parts := PackedStringArray()
+	parts.append(String(Moves.BOOK[calls[t]]["label"]).to_upper() if Moves.BOOK.has(calls[t]) else "")
+	for m in plan[t]:
+		parts.append(String(Moves.BOOK[m]["label"]))
+	return "%s %d  \u00BB %s" % [TEAM_NAMES[t], int(sync_pts[t] + flair_pts[t]), " \u203A ".join(parts)]
 
 
 func _captain_call(t: int) -> String:
@@ -249,12 +286,25 @@ func _captain_call(t: int) -> String:
 				near = true
 	# a charge is danced: the captain calls a move with kicks or swings in it and the crew
 	# takes it straight into the other lot
+	var log0: Array = call_log[t]
+	var p0: Array = plan[t]
+	while p0.size() < PLAN_AHEAD:
+		var seq0: Array = log0 + p0
+		var ls0 := Moves.style(String(seq0.back())) if not seq0.is_empty() else ""
+		p0.append(Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, seq0.slice(-2), ls0))
 	if stance[t] == "charge":
-		var pool: Array[String] = ["kick_line", "kick_line", "jab_line", "jab_line", "spin_kick", "windmill", "leap"]
+		var pool: Array[String] = ["kick_line", "kick_line", "jab_line", "jab_line", "spin_kick", "windmill", "leap", "krump"]
+		if charge_mode[t] == "line":
+			pool = ["kick_line", "kick_line", "kick_line", "spin_kick", "krump", "jab_line"]
 		return pool[rng.randi() % pool.size()]
 	var log_t: Array = call_log[t]
-	var last_style := Moves.style(String(log_t.back())) if not log_t.is_empty() else ""
-	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2), last_style)
+	# the captain works out his routine a few phrases ahead; the crowd can read it on the screen
+	var p: Array = plan[t]
+	while p.size() < PLAN_AHEAD + 1:
+		var seq: Array = log_t + p
+		var last_style := Moves.style(String(seq.back())) if not seq.is_empty() else ""
+		p.append(Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, seq.slice(-2), last_style))
+	return String(p.pop_front())
 
 
 func _stance_tag(t: int) -> String:
@@ -262,7 +312,7 @@ func _stance_tag(t: int) -> String:
 		return ""
 	match stance[t]:
 		"charge":
-			return "CHARGE!"
+			return "LINE CHARGE!" if charge_mode[t] == "line" else "CHARGE!"
 		"press":
 			return "pressing"
 	return ""
@@ -342,7 +392,43 @@ func _update_stances() -> void:
 		elif stance[t] == "press":
 			goal = 0.6
 		line[t] = lerpf(line[t], goal, 0.5)
-		focus[t] = _pick_focus(t) if stance[t] == "charge" else null
+		focus[t] = null
+		if stance[t] == "charge":
+			# half the time a crew goes for one man; the rest of the time it lines up and every
+			# dancer kicks his own opposite number, all on the same beat
+			charge_mode[t] = "line" if (standing(1 - t).size() >= 3 and rng.randf() < Tune.v("line_charge")) else "gang"
+			if charge_mode[t] == "line":
+				_assign_matchups(t)
+			else:
+				focus[t] = _pick_focus(t)
+
+
+## Pair each of the crew with an opposite number: both crews ranked along the stage front to back,
+## the first with the first, and so on, so a line charge meets the other line man for man.
+func _assign_matchups(t: int) -> void:
+	var crew := standing(t)
+	var foes := standing(1 - t)
+	crew.sort_custom(func(a, b): return a.global_position.z < b.global_position.z)
+	foes.sort_custom(func(a, b): return a.global_position.z < b.global_position.z)
+	var m := {}
+	for i in crew.size():
+		m[crew[i]] = foes[int(float(i) * float(foes.size()) / float(crew.size()))]
+	matchup[t] = m
+
+
+## The man a dancer in a line charge is kicking at: his own, or once that one is down, the nearest.
+func matchup_for(d: Dancer) -> Dancer:
+	var e = (matchup[d.team] as Dictionary).get(d)
+	if e != null and is_instance_valid(e) and e.ragdoll == null:
+		return e
+	var best: Dancer = null
+	var best_d := INF
+	for f in standing(1 - d.team):
+		var dd := d.global_position.distance_to(f.global_position)
+		if dd < best_d:
+			best_d = dd
+			best = f
+	return best
 
 
 ## The rival a charging crew goes for: whoever is standing nearest the middle of the crew.

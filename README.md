@@ -86,3 +86,11 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Every move belongs to one of five styles: street, ballet, burlesque (showgirl, cartoon), cheer and vaudeville. 14 new moves (41 in all): Plie, Pirouette, Arabesque, Grand jete; Hip bump, Shoulder tease, Slow strut; High V, Clap and punch, Herkie, Toe touch; Soft shoe, Hat tip and bow, Buck and wing.
 - Captains mix styles: a call in the same style as the last one is weighted x0.3. A crew whose last four calls span several styles earns up to `style_bonus` (15%) extra flair. The board shows the style next to the move.
 - Round robin (10 songs a pair): Balanced 46, Showboat 58, Drill Team 42, Rumbler 62, Hothead 44, Wallflower 48.
+
+## Gritty moves, line charges and the routine on screen (2026-10-01)
+- Fixed: `Moves.choose` walked a NAMES list the last two patches had not reached, so the ballet, burlesque, cheer and vaudeville moves were never called. It now walks `Moves.BOOK`, so all 49 moves are live.
+- Eight gritty street moves: Stanky leg, Jerk, Shmoney, Dougie, Running man, Harlem shake, Back it up and Krump (stomp, chest pop, arm swing, a two-fisted jab on 2 and 6 that lands as a dance-strike). `Moves.GRITTY` weighted x(1.8 + showmanship), and the twerk family (`Moves.REAR`) a further x2.
+- The twerk is danced bent right over with the backside to whoever he would face (the crowd, or the other crew as a taunt), bouncing twice a beat; dancers now have hips to shake.
+- Line charges: half of all charges (`line_charge`) pair each dancer with his opposite number by rank, and the crew kicks every man on the other side on the same beat. The board reads LINE CHARGE!.
+- Each captain plans three moves ahead; the HUD shows the move now in capitals, its style, and the next three. On a phone it is one short line per crew.
+- Round robin (10 songs a pair): Balanced 42, Showboat 60, Drill Team 44, Rumbler 51, Hothead 47, Wallflower 56.

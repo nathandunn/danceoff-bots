@@ -14,6 +14,9 @@ const BUILD_LIST := ["Even", "Metronome", "Diva", "Rock", "Bruiser", "Pitcher", 
 var manager: MatchManager
 var timer_label: Label
 var team_labels: Array[Label] = []
+signal band_resized
+var _band_h := 0.0
+var routine_labels: Array[Label] = []   # the move now (highlighted) and the captain's next three
 var live_label: Label
 var status_label: Label
 var teams_overlay: Control
@@ -88,6 +91,13 @@ func setup(m: MatchManager) -> void:
 		l.add_theme_font_size_override("font_size", 18)
 		row1.add_child(l)
 		team_labels.append(l)
+		var rl := Label.new()
+		rl.add_theme_color_override("font_color", Color(1.0, 0.93, 0.45))
+		rl.add_theme_color_override("font_outline_color", Color(0.15, 0.05, 0.0))
+		rl.add_theme_constant_override("outline_size", 4)
+		rl.add_theme_font_size_override("font_size", 18)
+		row1.add_child(rl)
+		routine_labels.append(rl)
 
 	var row2 := HFlowContainer.new()
 	row2.add_theme_constant_override("h_separation", 6)
@@ -619,6 +629,10 @@ func _process(delta: float) -> void:
 	if _band_bg != null and _row2 != null:
 		_band_bg.position = Vector2.ZERO
 		_band_bg.size = Vector2(_root.size.x, _row2.get_global_rect().end.y - _root.get_global_rect().position.y + 6.0)
+		# the button rows grew or shrank (a long routine wrapped): the camera re-fits the stage below them
+		if _band_bg.size.y > _band_h + 4.0:
+			_band_h = _band_bg.size.y
+			band_resized.emit()
 	_tick -= delta
 	if _tick > 0.0 or manager == null:
 		return
@@ -626,8 +640,18 @@ func _process(delta: float) -> void:
 	var bar := mini(int(manager.beat_f / 4.0) + 1, manager.song_bars)
 	timer_label.text = "Bar %d/%d" % [bar, manager.song_bars] if manager.running else ("Judging" if manager.celebration_phase == "judging" else "Song over")
 	for t in 2:
-		team_labels[t].text = "%s  sync %d  flair %d  (%d/%d dancing)  %s" % [MatchManager.TEAM_NAMES[t], int(manager.sync_pts[t]), int(manager.flair_pts[t]),
-			manager.count_dancing(t), MatchManager.TEAM_SIZE, Moves.label(manager.calls[t]) if manager.running else ""]
+		team_labels[t].text = "%s  sync %d  flair %d  (%d/%d dancing)" % [MatchManager.TEAM_NAMES[t], int(manager.sync_pts[t]), int(manager.flair_pts[t]),
+			manager.count_dancing(t), MatchManager.TEAM_SIZE]
+		# on a narrow screen: one short line per crew (score, move now, next three), wrapping if it must
+		var narrow := _root.size.x < 720.0
+		team_labels[t].visible = not narrow or not manager.running
+		routine_labels[t].add_theme_font_size_override("font_size", 15 if narrow else 18)
+		if manager.running:
+			routine_labels[t].text = manager.routine_short(t) if narrow else manager.routine_text(t)
+		else:
+			routine_labels[t].text = ""
+		routine_labels[t].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if narrow else TextServer.AUTOWRAP_OFF
+		routine_labels[t].custom_minimum_size.x = (_root.size.x - 30.0) if narrow else 0.0
 	if live_label.visible:
 		var lines := PackedStringArray()
 		for d in manager.dancers:
