@@ -70,3 +70,8 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - A dancer who is hit gets *hurt* (+`hurt_hit` per hit, up to `hurt_max`, healing `hurt_heal` a tick): he moves slower (speed × (1 − hurt)), his timing gets ragged (`hurt_sloppy`), and blood trickles from his nose, with a gush on each hit.
 - The opening camera fits both crews' whole dancing area below the button rows, whatever the screen shape; the board may sit behind the dimmed button band.
 - Round robin after the change (8 songs a pair): Showboat 58, Drill Team 58, Rumbler 60, Hothead 50, Wallflower 52; Balanced (now discipline and showmanship .6) about 45.
+
+## Better dancing and costumes (2026-09-30)
+- Dancers now have joints: elbows, knees, a waist that turns and rolls against the hips, and a nodding head. Every move gets a groove underneath it (knees give on the beat with the hips dropping to match, head nod, shoulder roll). Running bends the knees; a hurt dancer droops.
+- Nine new moves: The twist, Disco point, Robot, Charleston, Moonwalk (glides), Can-can, Hip roll, Twerk and Booty drop (cartoon blocks, all strictly for laughs). 22 moves in all.
+- Costumes: Alley Cats wear orange jackets, black slacks with a gold stripe, white shoes and gold trim; Night Owls wear blue blazers, cream slacks with a navy stripe, tan shoes, pink trim and white hats. White gloves, shirt front, lapels, belt and buckle for all. Five dancers a side, no two alike: own skin tone, hair (quiff, slicked, bun, mohawk, bald) and a bandana, bow tie, braces, necktie or shades.

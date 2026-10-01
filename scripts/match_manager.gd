@@ -113,6 +113,9 @@ func start_match(seed_value: int = -1) -> void:
 			var kp := Prop.new()
 			kp.kind = k
 			kp.manager = self
+			if k == Prop.Kind.HAT:
+				kp.band = Dancer.ACCENT[d.team]
+				kp.felt = Dancer.FELT[d.team]
 			kp.home = d.position
 			kp.position = d.position + Vector3(0, 1.2, 0)
 			world.add_child(kp)

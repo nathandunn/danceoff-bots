@@ -12,6 +12,8 @@ const NAMES := ["hat", "cane", "bin lid", "rubber chicken"]
 const MASSES := [0.3, 0.6, 1.5, 0.5]
 
 var kind: int = Kind.HAT
+var felt := Color(0.07, 0.07, 0.09)      # hat felt
+var band := Color(0.8, 0.1, 0.15)        # hat band and feather
 var manager = null
 var holder: Dancer = null
 var thrower: Dancer = null
@@ -167,9 +169,11 @@ func _build() -> void:
 	var cs := CollisionShape3D.new()
 	match kind:
 		Kind.HAT:
-			_mesh(_cyl(0.2, 0.025), Vector3(0, 0.012, 0), _mat(Color(0.07, 0.07, 0.09)))
-			_mesh(_cyl(0.125, 0.18), Vector3(0, 0.11, 0), _mat(Color(0.07, 0.07, 0.09)))
-			_mesh(_cyl(0.13, 0.04), Vector3(0, 0.05, 0), _mat(Color(0.8, 0.1, 0.15)))
+			_mesh(_cyl(0.21, 0.025), Vector3(0, 0.012, 0), _mat(felt))
+			_mesh(_cyl(0.125, 0.18), Vector3(0, 0.11, 0), _mat(felt))
+			_mesh(_box(Vector3(0.15, 0.025, 0.06)), Vector3(0, 0.205, 0), _mat(felt.darkened(0.25)))
+			_mesh(_cyl(0.131, 0.05), Vector3(0, 0.055, 0), _mat(band))
+			_mesh(_box(Vector3(0.02, 0.1, 0.05)), Vector3(0.12, 0.13, 0.03), _mat(band.lightened(0.2)))
 			var sh := CylinderShape3D.new()
 			sh.radius = 0.2
 			sh.height = 0.2
@@ -179,6 +183,10 @@ func _build() -> void:
 			_mesh(_cyl(0.025, 0.9), Vector3.ZERO, _mat(Color(0.07, 0.07, 0.09)))
 			_mesh(_cyl(0.03, 0.08), Vector3(0, -0.42, 0), _mat(Color(0.95, 0.95, 0.95)))
 			_mesh(_box(Vector3(0.16, 0.05, 0.05)), Vector3(0.06, 0.45, 0), _mat(Color(0.95, 0.85, 0.3), 0.6))
+			var knob := SphereMesh.new()
+			knob.radius = 0.05
+			knob.height = 0.1
+			_mesh(knob, Vector3(0.14, 0.45, 0), _mat(Color(0.95, 0.8, 0.25), 0.8))
 			var sh := BoxShape3D.new()
 			sh.size = Vector3(0.1, 0.9, 0.1)
 			cs.shape = sh

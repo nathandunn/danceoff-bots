@@ -117,7 +117,21 @@ var _celeb_t := 0.0
 var _tears: CPUParticles3D = null
 
 # body
+const ACCENT := [Color(0.98, 0.82, 0.2), Color(1.0, 0.45, 0.72)]
+const FELT := [Color(0.08, 0.08, 0.1), Color(0.93, 0.92, 0.88)]
+const TROUSERS := [Color(0.09, 0.09, 0.11), Color(0.93, 0.88, 0.74)]
+const SHOES := [Color(0.96, 0.96, 0.98), Color(0.52, 0.31, 0.16)]
+const SKINS := [Color(0.9, 0.75, 0.6), Color(0.62, 0.42, 0.3), Color(0.78, 0.58, 0.42), Color(0.45, 0.3, 0.22), Color(0.95, 0.8, 0.68)]
+const HAIRS := [Color(0.08, 0.07, 0.07), Color(0.36, 0.2, 0.1), Color(0.9, 0.74, 0.34), Color(0.62, 0.2, 0.1), Color(0.78, 0.78, 0.8)]
+
 var body_root: Node3D
+var upper: Node3D          # everything above the waist: it turns and rolls against the hips
+var head_node: Node3D
+var fore_l: Node3D
+var fore_r: Node3D
+var shin_l: Node3D
+var shin_r: Node3D
+var _trouser_mat: StandardMaterial3D
 var arm_l: Node3D
 var arm_r: Node3D
 var leg_l: Node3D
@@ -197,21 +211,44 @@ func _build_body() -> void:
 	_skin_mat = StandardMaterial3D.new()
 	_skin_mat.albedo_color = Color(0.9, 0.75, 0.6)
 
-	_part(_box(Vector3(0.5, 0.62, 0.3)), Vector3(0, 1.12, 0), _mat)
-	_part(_box(Vector3(0.3, 0.3, 0.3)), Vector3(0, 1.66, 0), _skin_mat)
+	var vis: bool = manager == null or not manager.headless
+	_skin_mat.albedo_color = SKINS[(slot + team * 2) % 5]
+	var accent: Color = ACCENT[team]
+	var sleeve := StandardMaterial3D.new()
+	sleeve.albedo_color = team_color.darkened(0.12)
+	sleeve.roughness = 0.6
+	var glove := StandardMaterial3D.new()
+	glove.albedo_color = Color(0.97, 0.97, 0.97)
+	_trouser_mat = StandardMaterial3D.new()
+	_trouser_mat.albedo_color = TROUSERS[team]
+	_trouser_mat.roughness = 0.8
+	var shoe := StandardMaterial3D.new()
+	shoe.albedo_color = SHOES[team]
+	shoe.roughness = 0.35
+	var stripe_mat := StandardMaterial3D.new()
+	stripe_mat.albedo_color = accent if team == 0 else team_color.darkened(0.3)
+
+	upper = Node3D.new()
+	upper.position = Vector3(0, 0.82, 0)
+	body_root.add_child(upper)
+	_dec(upper, _box(Vector3(0.5, 0.62, 0.3)), Vector3(0, 0.30, 0), _mat)
+	head_node = Node3D.new()
+	head_node.position = Vector3(0, 0.64, 0)
+	upper.add_child(head_node)
+	_dec(head_node, _box(Vector3(0.3, 0.3, 0.3)), Vector3(0, 0.2, 0), _skin_mat)
 	var ink := StandardMaterial3D.new()
 	ink.albedo_color = Color(0.08, 0.08, 0.1)
-	_part(_box(Vector3(0.2, 0.05, 0.03)), Vector3(0, 1.72, -0.16), ink)
+	_dec(head_node, _box(Vector3(0.2, 0.05, 0.03)), Vector3(0, 0.26, -0.16), ink)
 	var lip := StandardMaterial3D.new()
 	lip.albedo_color = Color(0.6, 0.15, 0.15)
-	_part(_box(Vector3(0.12, 0.03, 0.03)), Vector3(0, 1.58, -0.16), lip)
+	_dec(head_node, _box(Vector3(0.12, 0.03, 0.03)), Vector3(0, 0.12, -0.16), lip)
 	# the nosebleed: a trickle down the face that lengthens with the damage, and drops off the chin
 	_blood_mat = StandardMaterial3D.new()
 	_blood_mat.albedo_color = Color(0.62, 0.02, 0.03)
 	_blood_mat.emission_enabled = true
 	_blood_mat.emission = Color(0.3, 0.0, 0.0)
-	if manager == null or not manager.headless:
-		_trickle = _part(_box(Vector3(0.05, 0.14, 0.02)), Vector3(0, 1.55, -0.163), _blood_mat)
+	if vis:
+		_trickle = _dec(head_node, _box(Vector3(0.05, 0.14, 0.02)), Vector3(0, 0.09, -0.163), _blood_mat)
 		_trickle.visible = false
 		_drip = CPUParticles3D.new()
 		_drip.amount = 18
@@ -229,19 +266,37 @@ func _build_body() -> void:
 		dm.rings = 3
 		_drip.mesh = dm
 		_drip.material_override = _blood_mat
-		_drip.position = Vector3(0, 1.6, -0.17)
-		body_root.add_child(_drip)
+		_drip.position = Vector3(0, 0.14, -0.17)
+		head_node.add_child(_drip)
 		_drip.emitting = false
-	arm_l = _limb(Vector3(-0.35, 1.45, 0), 0.08, 0.56, 0.25)
-	arm_r = _limb(Vector3(0.35, 1.45, 0), 0.08, 0.56, 0.25)
-	leg_l = _limb(Vector3(-0.14, 0.8, 0), 0.1, 0.72, 0.4)
-	leg_r = _limb(Vector3(0.14, 0.8, 0), 0.1, 0.72, 0.4)
+	# arms: sleeve, elbow, forearm, white glove
+	arm_l = _joint(upper, Vector3(-0.35, 0.63, 0), 0.08, 0.3, sleeve)
+	arm_r = _joint(upper, Vector3(0.35, 0.63, 0), 0.08, 0.3, sleeve)
+	fore_l = _joint(arm_l, Vector3(0, -0.28, 0), 0.07, 0.31, sleeve)
+	fore_r = _joint(arm_r, Vector3(0, -0.28, 0), 0.07, 0.31, sleeve)
+	var ball := SphereMesh.new()
+	ball.radius = 0.075
+	ball.height = 0.15
+	_dec(fore_l, ball, Vector3(0, -0.32, 0), glove)
+	_dec(fore_r, ball, Vector3(0, -0.32, 0), glove)
+	# legs: thigh, knee, shin, shoe
+	leg_l = _joint(body_root, Vector3(-0.14, 0.8, 0), 0.1, 0.4, _trouser_mat)
+	leg_r = _joint(body_root, Vector3(0.14, 0.8, 0), 0.1, 0.4, _trouser_mat)
+	shin_l = _joint(leg_l, Vector3(0, -0.38, 0), 0.085, 0.4, _trouser_mat)
+	shin_r = _joint(leg_r, Vector3(0, -0.38, 0), 0.085, 0.4, _trouser_mat)
+	var sole := StandardMaterial3D.new()
+	sole.albedo_color = Color(0.05, 0.05, 0.06)
+	for sh in [shin_l, shin_r]:
+		_dec(sh, _box(Vector3(0.17, 0.09, 0.3)), Vector3(0, -0.4, -0.05), shoe)
+		_dec(sh, _box(Vector3(0.18, 0.025, 0.31)), Vector3(0, -0.445, -0.05), sole)
 	hat_anchor = Node3D.new()
-	hat_anchor.position = Vector3(0, 1.81, 0)
-	body_root.add_child(hat_anchor)
+	hat_anchor.position = Vector3(0, 0.35, 0)
+	head_node.add_child(hat_anchor)
 	hand_anchor = Node3D.new()
-	hand_anchor.position = Vector3(0, -0.55, 0)
-	arm_r.add_child(hand_anchor)
+	hand_anchor.position = Vector3(0, -0.28, 0)
+	fore_r.add_child(hand_anchor)
+	if vis:
+		_dress(accent, stripe_mat, ink)
 
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -253,6 +308,83 @@ func _build_body() -> void:
 	label.text = dancer_name
 	label.modulate = team_color.lightened(0.5)
 	add_child(label)
+
+
+func _dec(parent: Node3D, mesh: Mesh, pos: Vector3, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.material_override = mat
+	mi.position = pos
+	parent.add_child(mi)
+	return mi
+
+
+## A limb segment: a pivot at its top with a capsule hanging below it.
+func _joint(parent: Node3D, pivot: Vector3, r: float, h: float, mat: Material) -> Node3D:
+	var piv := Node3D.new()
+	piv.position = pivot
+	parent.add_child(piv)
+	_dec(piv, _capsule(r, h), Vector3(0, -h * 0.5, 0), mat)
+	return piv
+
+
+func _flat(c: Color) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = c
+	m.roughness = 0.7
+	return m
+
+
+## Costume. Alley Cats: team-orange jackets, black slacks with a gold stripe, white shoes, gold trim.
+## Night Owls: blue blazers, cream slacks with a navy stripe, tan shoes, pink trim. Five of each, and
+## no two alike: their own skin, hair, and a collar-and-tie, bandana, bow tie, braces or shades.
+func _dress(accent: Color, stripe_mat: StandardMaterial3D, ink: StandardMaterial3D) -> void:
+	var white := _flat(Color(0.96, 0.96, 0.98))
+	var lapel := _flat(team_color.darkened(0.4))
+	var acc := _flat(accent)
+	var hair := _flat(HAIRS[(slot * 2 + team + 1) % 5])
+	# shirt front, lapels, collar, belt and buckle
+	_dec(upper, _box(Vector3(0.22, 0.5, 0.012)), Vector3(0, 0.34, -0.152), white)
+	for sx in [-1.0, 1.0]:
+		var lp := _dec(upper, _box(Vector3(0.09, 0.44, 0.016)), Vector3(sx * 0.14, 0.36, -0.154), lapel)
+		lp.rotation.z = -sx * 0.18
+	_dec(upper, _box(Vector3(0.28, 0.06, 0.2)), Vector3(0, 0.62, 0), white)
+	_dec(upper, _box(Vector3(0.52, 0.07, 0.32)), Vector3(0, 0.03, 0), _flat(Color(0.06, 0.06, 0.07)))
+	_dec(upper, _box(Vector3(0.09, 0.06, 0.02)), Vector3(0, 0.03, -0.165), _flat(Color(0.95, 0.8, 0.25)))
+	# trouser stripes, thigh and shin, outer side
+	for pair in [[leg_l, shin_l, -1.0], [leg_r, shin_r, 1.0]]:
+		_dec(pair[0], _box(Vector3(0.02, 0.38, 0.05)), Vector3(pair[2] * 0.1, -0.2, 0), stripe_mat)
+		_dec(pair[1], _box(Vector3(0.02, 0.38, 0.05)), Vector3(pair[2] * 0.085, -0.2, 0), stripe_mat)
+	# hair under the hat: a cap, sideburns, and a style apiece
+	if slot != 4:
+		_dec(head_node, _box(Vector3(0.33, 0.09, 0.33)), Vector3(0, 0.33, 0), hair)
+	for sx in [-1.0, 1.0]:
+		_dec(head_node, _box(Vector3(0.03, 0.12, 0.04)), Vector3(sx * 0.165, 0.14, -0.1), hair)
+	match slot:
+		0:
+			_dec(head_node, _box(Vector3(0.18, 0.08, 0.12)), Vector3(0, 0.38, -0.1), hair)   # quiff
+			_dec(upper, _box(Vector3(0.07, 0.05, 0.012)), Vector3(-0.17, 0.5, -0.153), acc)   # pocket square
+			_dec(head_node, _box(Vector3(0.24, 0.06, 0.03)), Vector3(0, 0.25, -0.162), ink)    # shades
+		1:
+			_dec(head_node, _box(Vector3(0.32, 0.2, 0.05)), Vector3(0, 0.2, 0.16), hair)       # slicked back
+			_dec(head_node, _box(Vector3(0.14, 0.025, 0.03)), Vector3(0, 0.15, -0.165), hair)  # moustache
+			_dec(upper, _box(Vector3(0.34, 0.09, 0.24)), Vector3(0, 0.6, 0.0), acc)            # bandana
+		2:
+			var bun := SphereMesh.new()
+			bun.radius = 0.13
+			bun.height = 0.26
+			_dec(head_node, bun, Vector3(0, 0.24, 0.2), hair)                                   # bun
+			for sx in [-1.0, 1.0]:
+				_dec(upper, _box(Vector3(0.07, 0.07, 0.02)), Vector3(sx * 0.06, 0.56, -0.16), acc)
+			_dec(upper, _box(Vector3(0.04, 0.04, 0.025)), Vector3(0, 0.56, -0.16), acc)         # bow tie
+		3:
+			_dec(head_node, _box(Vector3(0.05, 0.14, 0.34)), Vector3(0, 0.4, 0), hair)          # mohawk
+			_dec(head_node, _box(Vector3(0.14, 0.025, 0.03)), Vector3(0, 0.15, -0.165), hair)
+			for sx in [-1.0, 1.0]:
+				_dec(upper, _box(Vector3(0.04, 0.5, 0.014)), Vector3(sx * 0.15, 0.3, -0.158), acc)   # braces
+		_:
+			_dec(upper, _box(Vector3(0.06, 0.34, 0.014)), Vector3(0, 0.4, -0.158), acc)         # necktie
+			_dec(head_node, _box(Vector3(0.24, 0.06, 0.03)), Vector3(0, 0.25, -0.162), ink)     # shades, bald
 
 
 func _part(mesh: Mesh, pos: Vector3, mat: Material) -> MeshInstance3D:
@@ -1141,7 +1273,7 @@ func _spawn_ragdoll() -> void:
 	manager.world.add_child(ragdoll)
 	var pose := global_transform
 	pose.origin.y = 0.0
-	ragdoll.build(pose, _mat, _dark_mat, _skin_mat)
+	ragdoll.build(pose, _mat, _dark_mat, _skin_mat, _trouser_mat)
 	body_root.visible = false
 	label.visible = false
 
@@ -1181,11 +1313,29 @@ func _apply_pose(p: Dictionary, delta: float) -> void:
 		lerp_angle(body_root.rotation.x, float(p["lean"]), k),
 		lerp_angle(body_root.rotation.y, float(p["yaw"]), k),
 		lerp_angle(body_root.rotation.z, float(p["tilt"]) + wob, k))
-	body_root.position = body_root.position.lerp(Vector3(float(p["sway"]), float(p["bob"]), 0.0), k)
+	body_root.position = body_root.position.lerp(Vector3(float(p["sway"]), float(p["bob"]), float(p.get("glide", 0.0))), k)
 	_limb_to(arm_l, p["arm_l"], k)
 	_limb_to(arm_r, p["arm_r"], k)
 	_limb_to(leg_l, p["leg_l"], k)
 	_limb_to(leg_r, p["leg_r"], k)
+	# the joints: waist, neck, elbows, knees (a hurt dancer droops and dances smaller)
+	var droop := hurt * 0.6
+	_limb_to(upper, Vector3(-float(p.get("hunch", 0.0)) - droop * 0.5, float(p.get("twist", 0.0)), float(p.get("counter", 0.0))), k)
+	_limb_to(head_node, Vector3(-float(p.get("nod", 0.0)) - droop * 0.4, float(p.get("turn", 0.0)), float(p.get("cock", 0.0))), k)
+	_limb_to(fore_l, Vector3(float(p.get("elbow_l", 0.3)), 0, 0), k)
+	_limb_to(fore_r, Vector3(float(p.get("elbow_r", 0.3)), 0, 0), k)
+	_limb_to(shin_l, Vector3(-float(p.get("knee_l", 0.0)), 0, 0), k)
+	_limb_to(shin_r, Vector3(-float(p.get("knee_r", 0.0)), 0, 0), k)
+
+
+## Back to a neutral frame for the poses that don't use the joints (running, brawling, cheering).
+func _relax(k: float, knee_l := 0.0, knee_r := 0.0) -> void:
+	_limb_to(upper, Vector3.ZERO, k)
+	_limb_to(head_node, Vector3.ZERO, k)
+	_limb_to(fore_l, Vector3(0.3, 0, 0), k)
+	_limb_to(fore_r, Vector3(0.3, 0, 0), k)
+	_limb_to(shin_l, Vector3(-knee_l, 0, 0), k)
+	_limb_to(shin_r, Vector3(-knee_r, 0, 0), k)
 
 
 func _run_pose(delta: float) -> void:
@@ -1194,6 +1344,9 @@ func _run_pose(delta: float) -> void:
 	var k := clampf(delta * 12.0, 0.0, 1.0)
 	body_root.rotation = Vector3(lerp_angle(body_root.rotation.x, -0.12, k), lerp_angle(body_root.rotation.y, 0.0, k), lerp_angle(body_root.rotation.z, 0.0, k))
 	body_root.position = body_root.position.lerp(Vector3(0, absf(s) * 0.05, 0), k)
+	_relax(k, maxf(-s, 0.0) * 1.1, maxf(s, 0.0) * 1.1)
+	_limb_to(fore_l, Vector3(0.9, 0, 0), k)
+	_limb_to(fore_r, Vector3(0.9, 0, 0), k)
 	_limb_to(leg_l, Vector3(s * 0.7, 0, 0), k)
 	_limb_to(leg_r, Vector3(-s * 0.7, 0, 0), k)
 	_limb_to(arm_l, Vector3(-s * 0.5, 0, -0.1), k)
@@ -1205,6 +1358,9 @@ func _fists_pose(delta: float) -> void:
 	var k := clampf(delta * 12.0, 0.0, 1.0)
 	body_root.rotation = Vector3(lerp_angle(body_root.rotation.x, -0.1, k), lerp_angle(body_root.rotation.y, 0.0, k), 0.0)
 	body_root.position = body_root.position.lerp(Vector3(0, absf(sin(float(Time.get_ticks_msec()) * 0.008)) * 0.05, 0), k)
+	_relax(k, 0.35, 0.35)
+	_limb_to(fore_l, Vector3(1.6, 0, 0), k)
+	_limb_to(fore_r, Vector3(1.6, 0, 0), k)
 	_limb_to(arm_l, Vector3(1.3, 0, 0.3), k)
 	_limb_to(arm_r, Vector3(1.1, 0, -0.3), k)
 	_limb_to(leg_l, Vector3(0.25, 0, 0), k)
@@ -1237,6 +1393,7 @@ func _celebrate(delta: float) -> void:
 		_apply_pose(Moves.pose("", float(manager.beat_f)), delta)
 		return
 	var k := clampf(delta * 8.0, 0.0, 1.0)
+	_relax(k)
 	match celeb_role:
 		"cheer":
 			if phase == "cheer":
@@ -1257,6 +1414,10 @@ func _celebrate(delta: float) -> void:
 				_limb_to(leg_r, Vector3.ZERO, k)
 		"cry":
 			var shake := sin(_celeb_t * 14.0) * 0.03
+			_limb_to(head_node, Vector3(-0.55, 0, 0), k)
+			_limb_to(upper, Vector3(0.35, 0, 0), k)
+			_limb_to(shin_l, Vector3(-1.5, 0, 0), k)
+			_limb_to(shin_r, Vector3(-1.5, 0, 0), k)
 			body_root.position = body_root.position.lerp(Vector3(0, -0.6 + shake, 0), k)
 			body_root.rotation = Vector3(lerp_angle(body_root.rotation.x, -0.25, k), lerp_angle(body_root.rotation.y, 0.0, k), 0.0)
 			_limb_to(leg_l, Vector3(1.45, 0, -0.1), k)

@@ -20,7 +20,7 @@ var bodies := {}
 var torso: RigidBody3D
 
 
-func build(pose: Transform3D, main_mat: Material, dark_mat: Material, eye_mat: Material) -> void:
+func build(pose: Transform3D, main_mat: Material, dark_mat: Material, eye_mat: Material, leg_mat: Material = null) -> void:
 	global_transform = Transform3D.IDENTITY
 	for p in PARTS:
 		var rb := RigidBody3D.new()
@@ -51,7 +51,8 @@ func build(pose: Transform3D, main_mat: Material, dark_mat: Material, eye_mat: M
 			m.radial_segments = 8
 			m.rings = 3
 			mi.mesh = m
-		mi.material_override = main_mat if p[0] == "torso" else (eye_mat if p[0] == "head" else dark_mat)
+		var limb_mat: Material = leg_mat if (leg_mat != null and (p[0] == "leg_l" or p[0] == "leg_r")) else dark_mat
+		mi.material_override = main_mat if p[0] == "torso" else (eye_mat if p[0] == "head" else limb_mat)
 		rb.add_child(cs)
 		rb.add_child(mi)
 		add_child(rb)
