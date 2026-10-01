@@ -28,8 +28,13 @@ func build(pose: Transform3D, main_mat: Material, dark_mat: Material, eye_mat: M
 		rb.mass = p[5]
 		rb.collision_layer = LAYER_RAGDOLL
 		rb.collision_mask = LAYER_WORLD | LAYER_RAGDOLL
-		rb.linear_damp = 0.6
-		rb.angular_damp = 1.2
+		rb.linear_damp = 2.5
+		rb.angular_damp = 2.0
+		rb.gravity_scale = 2.2
+		var pm := PhysicsMaterial.new()
+		pm.friction = 1.5
+		pm.bounce = 0.0
+		rb.physics_material_override = pm
 		rb.can_sleep = true
 		var cs := CollisionShape3D.new()
 		var mi := MeshInstance3D.new()
@@ -74,8 +79,10 @@ func shove(impulse: Vector3) -> void:
 	if torso == null:
 		return
 	torso.apply_central_impulse(impulse)
-	# a little spin so it tumbles rather than slides
-	torso.apply_torque_impulse(Vector3(randf_range(-9, 9), randf_range(-5, 5), randf_range(-9, 9)))
+	# no tumbling: the knees go, and he tips over the way he was hit and folds up where he stands
+	torso.apply_torque_impulse(Vector3(randf_range(-1.5, 1.5), randf_range(-1, 1), randf_range(-1.5, 1.5)))
+	if impulse.length() > 0.01:
+		torso.apply_torque_impulse(Vector3.UP.cross(impulse.normalized()) * 3.0)
 	if bodies.has("head"):
 		bodies["head"].apply_central_impulse(impulse * 0.25)
 

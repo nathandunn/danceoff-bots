@@ -816,7 +816,7 @@ func on_beat(b: int, call: String) -> void:
 		block_beats = 0
 		block_on_time = 0
 		block_ok = true
-		fumbled = rng.randf() < float(Moves.FUMBLE[Moves.tier(move)]) * fumble_mult
+		fumbled = rng.randf() < float(Moves.FUMBLE[Moves.tier(move)]) * fumble_mult * (1.0 + 2.0 * wear())
 	if b % Moves.PHRASE == 0:
 		var was := move
 		var was_following := joined and not freestyle
@@ -836,11 +836,11 @@ func on_beat(b: int, call: String) -> void:
 		recent_moves.append(move)
 		if recent_moves.size() > 4:
 			recent_moves.pop_front()
-		fumbled = rng.randf() < float(Moves.FUMBLE[Moves.tier(move)]) * fumble_mult
+		fumbled = rng.randf() < float(Moves.FUMBLE[Moves.tier(move)]) * fumble_mult * (1.0 + 2.0 * wear())
 	# a dancer who stopped mid-phrase may pick the call up again at the next bar
 	if not joined and dancing and b % Moves.BLOCK == 0 and b % Moves.PHRASE != 0 and Tune.v("rejoin_beats") <= 4.0:
 		joined = true
-	tempo_err = tempo_err * 0.7 + rng.randfn(0.0, timing_sigma * (1.0 + Tune.v("hurt_sloppy") * hurt))
+	tempo_err = tempo_err * 0.7 + rng.randfn(0.0, timing_sigma * (1.0 + Tune.v("hurt_sloppy") * hurt + 1.5 * wear()))
 	in_sync = false
 	if dancing and joined:
 		stats["dance_beats"] += 1.0
@@ -862,7 +862,7 @@ func on_beat(b: int, call: String) -> void:
 
 
 func _score_block() -> void:
-	var q := execution
+	var q := execution * (1.0 - 0.8 * wear())
 	if fumbled:
 		q *= 0.3
 		stats["fumbles"] += 1.0
@@ -919,7 +919,7 @@ func _try_strike(b: int) -> void:
 	if rng.randf() > 0.8:
 		return
 	stats["strike_hits"] += 1.0
-	var pts := Tune.v("strike_pts") * clampf(execution, 0.2, 1.4)
+	var pts := Tune.v("strike_pts") * clampf(execution * (1.0 - 0.8 * wear()), 0.2, 1.4)
 	stats["flair"] += pts
 	stats["strike_pts"] += pts
 	manager.add_flair(team, pts, true)
@@ -1156,6 +1156,11 @@ func take_hit(by: Dancer, how: String, dir: Vector3, power: float) -> void:
 		_throw_t = 0.0
 
 
+## Every time he goes down he gets up a little worse: timing, execution and fumble risk all suffer.
+func wear() -> float:
+	return minf(float(stats["floored"]) * Tune.v("wear_per_fall"), 0.5)
+
+
 func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float) -> void:
 	stats["floored"] += 1.0
 	if by != null and is_instance_valid(by) and by.team != team:
@@ -1186,11 +1191,12 @@ func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float
 	_pending_dodge = -1.0
 	joined = false
 	in_sync = false
-	_down = down_base * Tune.v("down_mult") + (0.6 if now - _last_floored < 6.0 else 0.0)
+	var prior := maxf(float(stats["floored"]) - 1.0, 0.0)
+	_down = down_base * Tune.v("down_mult") * (1.0 + Tune.v("down_per_fall") * minf(prior, 8.0)) + (0.6 if now - _last_floored < 6.0 else 0.0)
 	_last_floored = now
 	_spawn_ragdoll()
 	if ragdoll != null:
-		ragdoll.shove(flat * (16.0 + 10.0 * clampf(power, 0.0, 1.5)) + Vector3(0, 6.0 + rng.randf() * 3.0, 0))
+		ragdoll.shove(flat * (3.0 + 2.0 * clampf(power, 0.0, 1.5)) + Vector3(0, -2.0, 0))
 	_stars(global_position + Vector3(0, 1.5, 0))
 
 
@@ -1319,7 +1325,7 @@ func _apply_pose(p: Dictionary, delta: float) -> void:
 	_limb_to(leg_l, p["leg_l"], k)
 	_limb_to(leg_r, p["leg_r"], k)
 	# the joints: waist, neck, elbows, knees (a hurt dancer droops and dances smaller)
-	var droop := hurt * 0.6
+	var droop := hurt * 0.6 + wear() * 0.5
 	_limb_to(upper, Vector3(-float(p.get("hunch", 0.0)) - droop * 0.5, float(p.get("twist", 0.0)), float(p.get("counter", 0.0))), k)
 	_limb_to(head_node, Vector3(-float(p.get("nod", 0.0)) - droop * 0.4, float(p.get("turn", 0.0)), float(p.get("cock", 0.0))), k)
 	_limb_to(fore_l, Vector3(float(p.get("elbow_l", 0.3)), 0, 0), k)

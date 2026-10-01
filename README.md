@@ -75,3 +75,9 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Dancers now have joints: elbows, knees, a waist that turns and rolls against the hips, and a nodding head. Every move gets a groove underneath it (knees give on the beat with the hips dropping to match, head nod, shoulder roll). Running bends the knees; a hurt dancer droops.
 - Nine new moves: The twist, Disco point, Robot, Charleston, Moonwalk (glides), Can-can, Hip roll, Twerk and Booty drop (cartoon blocks, all strictly for laughs). 22 moves in all.
 - Costumes: Alley Cats wear orange jackets, black slacks with a gold stripe, white shoes and gold trim; Night Owls wear blue blazers, cream slacks with a navy stripe, tan shoes, pink trim and white hats. White gloves, shirt front, lapels, belt and buckle for all. Five dancers a side, no two alike: own skin tone, hair (quiff, slicked, bun, mohawk, bald) and a bandana, bow tie, braces, necktie or shades.
+
+## Drops, crumples and wear (2026-09-30)
+- More drop dances: Low bounce, Drop and pop, Wind it down, Duck walk and Floor shake join Hip roll, Twerk and Booty drop (27 moves in all). The drop family gets a weight boost (x1.4 to x2.0 with showmanship).
+- A knockdown no longer sends the dancer flying: the ragdoll is heavy (gravity x2.2, high damping, grippy, no bounce), the shove is small and tips him the way he was hit, so he folds up where he stands.
+- Wear: each knockdown makes the next getting-up `down_per_fall` (25%) longer and dulls his dancing by `wear_per_fall` (7% per fall, capped at 50%): timing wobble, fumble risk, execution and strike points all suffer, and he droops.
+- strike_pts raised from 14 to 18 to keep the fighting crews level.

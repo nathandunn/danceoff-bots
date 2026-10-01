@@ -39,13 +39,21 @@ const BOOK := {
 	"hip_roll": {"label": "Hip roll", "beats": 4, "tier": 1, "strikes": [], "strike": "", "prop": ""},
 	"twerk": {"label": "Twerk", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
 	"booty_drop": {"label": "Booty drop", "beats": 4, "tier": 3, "strikes": [], "strike": "", "prop": ""},
+	"low_bounce": {"label": "Low bounce", "beats": 4, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"drop_and_pop": {"label": "Drop and pop", "beats": 8, "tier": 3, "strikes": [], "strike": "", "prop": ""},
+	"wind_it_down": {"label": "Wind it down", "beats": 8, "tier": 3, "strikes": [], "strike": "", "prop": ""},
+	"duck_walk": {"label": "Duck walk", "beats": 8, "tier": 2, "strikes": [], "strike": "", "prop": ""},
+	"floor_shake": {"label": "Floor shake", "beats": 4, "tier": 3, "strikes": [], "strike": "", "prop": ""},
 }
 
+# the drop family: crews favour these, and showmen most of all
+const DROPS: Array[String] = ["hip_roll", "twerk", "booty_drop", "low_bounce", "drop_and_pop", "wind_it_down", "duck_walk", "floor_shake"]
+
 # how much of the all-purpose groove (knee give, head nod, shoulder roll) each move keeps
-const GROOVE := {"knee_slide": 0.0, "leap": 0.0, "spin_kick": 0.0, "moonwalk": 0.0, "cancan": 0.0, "twerk": 0.0, "booty_drop": 0.0, "robot": 0.2}
+const GROOVE := {"knee_slide": 0.0, "leap": 0.0, "spin_kick": 0.0, "moonwalk": 0.0, "cancan": 0.0, "twerk": 0.0, "booty_drop": 0.0, "low_bounce": 0.0, "drop_and_pop": 0.0, "wind_it_down": 0.0, "duck_walk": 0.0, "floor_shake": 0.0, "robot": 0.2}
 
 const NAMES: Array[String] = ["step_touch", "clap_snap", "shimmy", "spin", "kick_line", "jazz_hands",
-	"grapevine", "knee_slide", "leap", "windmill", "cane_twirl", "spin_kick", "jab_line", "the_twist", "disco_point", "robot", "charleston", "moonwalk", "cancan", "hip_roll", "twerk", "booty_drop"]
+	"grapevine", "knee_slide", "leap", "windmill", "cane_twirl", "spin_kick", "jab_line", "the_twist", "disco_point", "robot", "charleston", "moonwalk", "cancan", "hip_roll", "twerk", "booty_drop", "low_bounce", "drop_and_pop", "wind_it_down", "duck_walk", "floor_shake"]
 
 
 static func tier(m: String) -> int:
@@ -82,6 +90,8 @@ static func choose(rng: RandomNumberGenerator, show: float, aggr: float, rivals_
 		var tr := tier(m)
 		var w := 1.0 + show * float(tr - 1) * 1.2 - (1.0 - show) * float(tr - 1) * 0.45
 		w = maxf(w, 0.05)
+		if DROPS.has(m):
+			w *= 1.4 + 0.6 * show
 		if not strikes(m).is_empty():
 			w *= 1.0 + aggr * (1.6 if rivals_near else 0.25)
 		if String(BOOK[m]["prop"]) == "cane":
@@ -365,6 +375,66 @@ static func pose(m: String, t: float) -> Dictionary:
 			p["elbow_l"] = 0.0
 			p["elbow_r"] = 0.0
 			p["nod"] = -0.4 * bl
+		"low_bounce":
+			# stay down in the squat and pulse on every half-beat
+			var lbs := sin(t * TAU * 2.0)
+			_low(p, 0.75 + 0.15 * cos(t * TAU * 2.0), 0.5)
+			p["tilt"] = lbs * 0.12
+			p["counter"] = -lbs * 0.11
+			p["turn"] = sin(t * PI * 0.5) * 0.4
+		"drop_and_pop":
+			# down on the half-beat, shake it, then explode up with the arms thrown high; twice
+			var du := fposmod(t, 4.0)
+			var dl := clampf(du / 0.6, 0.0, 1.0) if du < 2.6 else clampf((3.2 - du) / 0.6, 0.0, 1.0)
+			var dh := sin(clampf((du - 3.2) / 0.8, 0.0, 1.0) * PI)
+			var dk := sin(t * TAU * 2.0) * dl
+			_low(p, 1.1 * dl, 0.5 * dl)
+			p["bob"] = float(p["bob"]) + dh * 0.55
+			p["tilt"] = dk * 0.2
+			p["counter"] = -dk * 0.18
+			p["arm_l"] = Vector3(0.15 + 0.55 * dl + dh * 2.4, 0, -0.15 - dh * 0.4)
+			p["arm_r"] = Vector3(0.15 + 0.55 * dl + dh * 2.4, 0, 0.15 + dh * 0.4)
+			p["knee_l"] = float(p["knee_l"]) + dh * 0.9
+			p["knee_r"] = float(p["knee_r"]) + dh * 0.9
+		"wind_it_down":
+			# a slow slide to the floor, hips circling, hands in the air, and a slow climb back
+			var wl := sin(clampf(t / 8.0, 0.0, 1.0) * PI)
+			var wa := t * PI
+			_low(p, 1.1 * wl, 0.35 * wl)
+			p["tilt"] = sin(wa) * 0.16 * wl
+			p["counter"] = -sin(wa) * 0.14 * wl
+			p["sway"] = cos(wa) * 0.12 * wl
+			p["arm_l"] = Vector3(lerpf(0.15, 2.6, wl), 0, -0.4)
+			p["arm_r"] = Vector3(lerpf(0.15, 2.6, wl), 0, 0.4)
+			p["elbow_l"] = 0.3
+			p["elbow_r"] = 0.3
+			p["nod"] = -0.2 * wl
+			p["turn"] = sin(wa * 0.5) * 0.35
+		"duck_walk":
+			# a low waddle from side to side, elbows flapping
+			var dw := sin(t * PI)
+			_low(p, 0.9, 0.35)
+			p["leg_l"] = Vector3(0.9 + 0.2 * dw, 0, 0.15)
+			p["leg_r"] = Vector3(0.9 - 0.2 * dw, 0, -0.15)
+			p["sway"] = sin(t * PI * 0.5) * 0.45
+			p["tilt"] = dw * 0.1
+			p["counter"] = -dw * 0.1
+			p["arm_l"] = Vector3(0.0, 0, -0.9)
+			p["arm_r"] = Vector3(0.0, 0, 0.9)
+			p["elbow_l"] = 1.2 + 0.4 * sin(t * TAU * 2.0)
+			p["elbow_r"] = 1.2 - 0.4 * sin(t * TAU * 2.0)
+		"floor_shake":
+			# straight down to the floor, hands high, hips going like a sewing machine
+			var fl := clampf(t / 0.4, 0.0, 1.0) if t < 3.4 else clampf((4.0 - t) / 0.4, 0.0, 1.0)
+			var fk := sin(t * TAU * 2.5) * fl
+			_low(p, 1.2 * fl, 0.4 * fl)
+			p["tilt"] = fk * 0.22
+			p["counter"] = -fk * 0.2
+			p["arm_l"] = Vector3(0.15 + 2.45 * fl, 0, -0.5 * fl - 0.15)
+			p["arm_r"] = Vector3(0.15 + 2.45 * fl, 0, 0.5 * fl + 0.15)
+			p["elbow_l"] = 0.2
+			p["elbow_r"] = 0.2
+			p["turn"] = sin(t * PI) * 0.5
 		"spin_kick":
 			# wind up, whip round a full turn so the leg comes out on beat 2 facing the way he
 			# started, then land
@@ -397,6 +467,23 @@ static func pose(m: String, t: float) -> Dictionary:
 			p["bob"] = pulse * 0.03
 	_groove(m, t, p)
 	return p
+
+
+## A planted squat of depth `a` (radians at the thigh): knees bend twice as far, the hips drop to keep
+## the feet on the floor, hands on the knees, head up.
+static func _low(p: Dictionary, a: float, hunch: float) -> void:
+	var f := clampf(a, 0.0, 1.0)
+	p["leg_l"] = Vector3(a, 0, 0.15 * f)
+	p["leg_r"] = Vector3(a, 0, -0.15 * f)
+	p["knee_l"] = 2.0 * a
+	p["knee_r"] = 2.0 * a
+	p["bob"] = float(p["bob"]) - 0.76 * (1.0 - cos(a))
+	p["hunch"] = hunch
+	p["arm_l"] = Vector3(0.15 + 0.55 * f, 0, -0.15)
+	p["arm_r"] = Vector3(0.15 + 0.55 * f, 0, 0.15)
+	p["elbow_l"] = 0.0
+	p["elbow_r"] = 0.0
+	p["nod"] = -0.4 * f
 
 
 ## The all-purpose groove under every move: knees give on the beat (and the hips drop with them, so the
