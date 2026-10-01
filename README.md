@@ -81,3 +81,8 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - A knockdown no longer sends the dancer flying: the ragdoll is heavy (gravity x2.2, high damping, grippy, no bounce), the shove is small and tips him the way he was hit, so he folds up where he stands.
 - Wear: each knockdown makes the next getting-up `down_per_fall` (25%) longer and dulls his dancing by `wear_per_fall` (7% per fall, capped at 50%): timing wobble, fumble risk, execution and strike points all suffer, and he droops.
 - strike_pts raised from 14 to 18 to keep the fighting crews level.
+
+## Dance styles (2026-10-01)
+- Every move belongs to one of five styles: street, ballet, burlesque (showgirl, cartoon), cheer and vaudeville. 14 new moves (41 in all): Plie, Pirouette, Arabesque, Grand jete; Hip bump, Shoulder tease, Slow strut; High V, Clap and punch, Herkie, Toe touch; Soft shoe, Hat tip and bow, Buck and wing.
+- Captains mix styles: a call in the same style as the last one is weighted x0.3. A crew whose last four calls span several styles earns up to `style_bonus` (15%) extra flair. The board shows the style next to the move.
+- Round robin (10 songs a pair): Balanced 46, Showboat 58, Drill Team 42, Rumbler 62, Hothead 44, Wallflower 48.

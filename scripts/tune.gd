@@ -25,7 +25,8 @@ const DEFAULTS := {
 	"hurt_heal": 0.006,     # per second he mends
 	"down_per_fall": 0.25,  # each earlier knockdown makes the next getting-up this much longer (fraction)
 	"wear_per_fall": 0.07,  # each knockdown so far dulls his dancing by this much (capped at 0.5)
-	"hurt_sloppy": 0.5,     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
+	"hurt_sloppy": 0.5,
+	"style_bonus": 0.15,    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
 }
 
 static var values := DEFAULTS.duplicate()

@@ -221,6 +221,15 @@ func _on_beat(b: int) -> void:
 
 
 ## The standing dancer with the most showmanship calls the next phrase.
+## How many styles the crew's last four calls covered, 0 (all one style) .. 1 (four different).
+func style_mix(t: int) -> float:
+	var log_t: Array = call_log[t]
+	var seen := {}
+	for m in log_t.slice(-4):
+		seen[Moves.style(String(m))] = true
+	return clampf(float(seen.size() - 1) / 3.0, 0.0, 1.0)
+
+
 func _captain_call(t: int) -> String:
 	var cap: Dancer = null
 	for d in dancers:
@@ -244,7 +253,8 @@ func _captain_call(t: int) -> String:
 		var pool: Array[String] = ["kick_line", "kick_line", "jab_line", "jab_line", "spin_kick", "windmill", "leap"]
 		return pool[rng.randi() % pool.size()]
 	var log_t: Array = call_log[t]
-	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2))
+	var last_style := Moves.style(String(log_t.back())) if not log_t.is_empty() else ""
+	return Moves.choose(rng, cap.showmanship, cap.aggression, near, canes - 1, log_t.slice(-2), last_style)
 
 
 func _stance_tag(t: int) -> String:

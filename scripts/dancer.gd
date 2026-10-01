@@ -874,6 +874,8 @@ func _score_block() -> void:
 		if recent_moves[i] == move:
 			repeats += 1
 	q *= maxf(1.0 - 0.2 * float(repeats), 0.4)
+	# a crew that mixes its styles - ballet into burlesque into cheer - pleases the judges
+	q *= 1.0 + Tune.v("style_bonus") * manager.style_mix(team)
 	# a hat to tip and a cane to twirl: hand work, so arm sets how much each adds
 	var kit := 0.0
 	if hat != null:
