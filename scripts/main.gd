@@ -14,6 +14,8 @@ var batch_left := 0
 var batch_results: Array[Dictionary] = []
 var _restart_timer := -1.0
 var _base_seed := -1
+var _sun: DirectionalLight3D = null
+var _dbg_label: Label = null
 var _last_result: Dictionary = {}
 var _results_shown_for := -1
 
@@ -109,6 +111,13 @@ func _ready() -> void:
 		var q: String = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('speed') || ''", true))
 		if q.is_valid_float() and float(q) > 0.0:
 			set_sim_speed(clampf(float(q), 0.05, 8.0))
+		# ?shadows=0/1 overrides the default; ?debug=1 shows (and logs) the drawing counters
+		var sq: String = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('shadows') || ''", true))
+		if sq != "" and _sun != null:
+			_sun.shadow_enabled = sq != "0"
+		var dq: String = str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('debug') || ''", true))
+		if dq != "" and dq != "0":
+			_debug_on()
 	_start_next()
 
 
@@ -162,9 +171,44 @@ func _setup_ui_scale() -> void:
 func set_sim_speed(s: float) -> void:
 	Engine.time_scale = s
 	Engine.physics_ticks_per_second = maxi(int(round(60.0 * s)), 12)
-	Engine.max_physics_steps_per_frame = maxi(8, int(s * 4.0))
+	# in a browser at most three catch-up steps a frame: a slow frame slows the song a touch
+	# rather than snowballing into a slide show
+	Engine.max_physics_steps_per_frame = maxi(3, int(s * 3.0)) if OS.has_feature("web") else maxi(8, int(s * 4.0))
 	if beat != null:
 		beat.set_speed(s)
+
+
+## ?debug=1: frames a second, draw calls, objects and triangles drawn, nodes - top right, and in
+## the browser console once a second (so a headless browser can read them).
+func _debug_on() -> void:
+	var layer := CanvasLayer.new()
+	layer.layer = 50
+	add_child(layer)
+	_dbg_label = Label.new()
+	_dbg_label.add_theme_font_size_override("font_size", 13)
+	_dbg_label.add_theme_color_override("font_color", Color(0.6, 1.0, 0.6))
+	_dbg_label.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
+	_dbg_label.position.x -= 330.0
+	_dbg_label.position.y += 4.0
+	layer.add_child(_dbg_label)
+	var tm := Timer.new()
+	tm.wait_time = 1.0
+	tm.autostart = true
+	tm.process_mode = Node.PROCESS_MODE_ALWAYS
+	tm.timeout.connect(_debug_tick)
+	add_child(tm)
+
+
+func _debug_tick() -> void:
+	var t := "fps %d  draws %d  objects %d  tris %dk  nodes %d  shadows %s" % [
+		int(Performance.get_monitor(Performance.TIME_FPS)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)),
+		int(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME) / 1000.0),
+		int(Performance.get_monitor(Performance.OBJECT_NODE_COUNT)),
+		"on" if _sun != null and _sun.shadow_enabled else "off"]
+	_dbg_label.text = t
+	print("DEBUG " + t)
 
 
 func _build_lighting() -> void:
@@ -172,7 +216,8 @@ func _build_lighting() -> void:
 	sun.rotation_degrees = Vector3(-55, 15, 0)
 	sun.light_energy = 0.85
 	sun.light_color = Color(1.0, 0.92, 0.85)
-	sun.shadow_enabled = not headless
+	sun.shadow_enabled = not headless and not OS.has_feature("web")   # ?shadows=1 turns them on in a browser
+	_sun = sun
 	add_child(sun)
 	var env := WorldEnvironment.new()
 	var e := Environment.new()

@@ -132,6 +132,8 @@ var fore_r: Node3D
 var shin_l: Node3D
 var shin_r: Node3D
 var _trouser_mat: StandardMaterial3D
+var _core_mi: MeshInstance3D = null      # the baked torso, for the hit flash
+static var _flash_mats := {}
 var arm_l: Node3D
 var arm_r: Node3D
 var leg_l: Node3D
@@ -297,6 +299,7 @@ func _build_body() -> void:
 	fore_r.add_child(hand_anchor)
 	if vis:
 		_dress(accent, stripe_mat, ink)
+		_bake_body()
 
 	label = Label3D.new()
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
@@ -308,6 +311,25 @@ func _build_body() -> void:
 	label.text = dancer_name
 	label.modulate = team_color.lightened(0.5)
 	add_child(label)
+
+
+## Merge each moving part's pieces (some forty a dancer, with the costume) into one mesh under a
+## shared vertex-coloured material: the web renderer draws every mesh on its own. Eleven meshes a
+## dancer: hips, torso, head, two upper arms, two forearms, two thighs, two shins. The nosebleed
+## stays separate so it can show and hide. Shared between matches (same crew, same slot).
+func _bake_body() -> void:
+	var k := "dancer/%d/%d/" % [team, slot]
+	_core_mi = MeshBaker.bake_into(upper, [head_node, arm_l, arm_r], k + "upper")
+	MeshBaker.bake_into(head_node, [hat_anchor, _trickle, _drip], k + "head")
+	MeshBaker.bake_into(body_root, [upper, leg_l, leg_r], k + "hips")
+	MeshBaker.bake_into(arm_l, [fore_l], k + "arm")
+	MeshBaker.bake_into(arm_r, [fore_r], k + "arm")
+	MeshBaker.bake_into(fore_l, [], k + "fore")
+	MeshBaker.bake_into(fore_r, [hand_anchor], k + "fore")
+	MeshBaker.bake_into(leg_l, [shin_l], k + "thigh_l")
+	MeshBaker.bake_into(leg_r, [shin_r], k + "thigh_r")
+	MeshBaker.bake_into(shin_l, [], k + "shin_l")
+	MeshBaker.bake_into(shin_r, [], k + "shin_r")
 
 
 func _dec(parent: Node3D, mesh: Mesh, pos: Vector3, mat: Material) -> MeshInstance3D:
@@ -427,6 +449,22 @@ func _capsule(r: float, h: float) -> CapsuleMesh:
 
 
 func flash(c: Color) -> void:
+	if _core_mi != null:
+		# baked torso: a plain override of the flash colour for a moment
+		if _flash_tween != null and _flash_tween.is_valid():
+			_flash_tween.kill()
+		var key := c.to_html()
+		if not _flash_mats.has(key):
+			var fm := StandardMaterial3D.new()
+			fm.albedo_color = c
+			_flash_mats[key] = fm
+		_core_mi.material_override = _flash_mats[key]
+		_flash_tween = create_tween()
+		_flash_tween.tween_interval(0.2)
+		_flash_tween.tween_callback(func():
+			if is_instance_valid(_core_mi):
+				_core_mi.material_override = null)
+		return
 	if _mat == null:
 		return
 	if _flash_tween != null and _flash_tween.is_valid():

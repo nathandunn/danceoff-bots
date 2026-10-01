@@ -94,3 +94,10 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Line charges: half of all charges (`line_charge`) pair each dancer with his opposite number by rank, and the crew kicks every man on the other side on the same beat. The board reads LINE CHARGE!.
 - Each captain plans three moves ahead; the HUD shows the move now in capitals, its style, and the next three. On a phone it is one short line per crew.
 - Round robin (10 songs a pair): Balanced 42, Showboat 60, Drill Team 44, Rumbler 51, Hothead 47, Wallflower 56.
+
+## Performance in the browser (2026-10-01, from Drillbook Bots)
+- `MeshBaker` (copied from drillbook-bots): each dancer's ~40 coloured pieces become 11 meshes (hips, torso, head, upper arms, forearms, thighs, shins) under one shared vertex-coloured material, cached per crew and slot; props one mesh each; the stage's static scenery one mesh; the crowd six bouncing blocks. The nosebleed stays separate. The hit flash is a short material override on the torso.
+- Shadows off in the browser (`?shadows=1` turns them on).
+- Browser physics: at most three catch-up steps a frame (still 60 a second, as the dancing is posed in the physics tick).
+- `?debug=1`: fps, draw calls, objects, triangles, nodes, top right and in the console.
+- Measured (1280x720, Chromium, mid-song): draw calls 1,825 -> 189 (548 with shadows off before the merge; 600 with `?shadows=1` after).

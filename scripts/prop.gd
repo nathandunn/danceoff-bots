@@ -213,3 +213,5 @@ func _build() -> void:
 			sh.height = 0.4
 			cs.shape = sh
 	add_child(cs)
+	if manager == null or not manager.headless:
+		MeshBaker.bake_into(self, [], "prop/%d/%s/%s" % [kind, felt.to_html(), band.to_html()])

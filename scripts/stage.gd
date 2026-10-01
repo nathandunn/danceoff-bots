@@ -26,6 +26,7 @@ func _ready() -> void:
 	_backdrop()
 	_judges()
 	_crowd()
+	_bake_static()
 
 
 static func home_spot(team: int, slot: int) -> Vector3:
@@ -196,10 +197,17 @@ func _crowd() -> void:
 		var rise := 0.35 * row
 		if row > 0:
 			_box_mesh(Vector3(HALF_W * 2.0 + 4.0, rise, 1.3), Vector3(0, rise * 0.5, z), _mat(Color(0.2, 0.2, 0.24)))
+		# two blocks a row that bounce a little out of step: six meshes for the whole crowd
+		var groups := []
+		for gi in 2:
+			var g := Node3D.new()
+			g.position = Vector3(0, rise, 0)
+			add_child(g)
+			groups.append(g)
 		for i in 14:
 			var fig := Node3D.new()
-			fig.position = Vector3(-11.0 + i * 1.7 + (0.85 if row % 2 == 1 else 0.0) + r.randf_range(-0.2, 0.2), rise, z)
-			add_child(fig)
+			fig.position = Vector3(-11.0 + i * 1.7 + (0.85 if row % 2 == 1 else 0.0) + r.randf_range(-0.2, 0.2), 0.0, z)
+			(groups[i % 2] as Node3D).add_child(fig)
 			var col := Color.from_hsv(r.randf(), 0.5, 0.8)
 			var mi := MeshInstance3D.new()
 			var cap := CapsuleMesh.new()
@@ -221,9 +229,46 @@ func _crowd() -> void:
 			head.material_override = _mat(Color(0.85, 0.7, 0.55).darkened(r.randf() * 0.5))
 			head.position = Vector3(0, 1.35, 0)
 			fig.add_child(head)
-			crowd.append(fig)
+		for g in groups:
+			MeshBaker.bake_into(g, [])
+			crowd.append(g)
 			_crowd_base.append(rise)
 			_crowd_phase.append(r.randf() * 0.4)
+
+
+## Floor, walls, backdrop, bleachers and judges' table: every plain-coloured mesh that never moves,
+## merged into one. Glowing or see-through ones keep their own material.
+func _bake_static() -> void:
+	var parts := []
+	var doomed := []
+	_static_parts(self, parts, doomed)
+	if parts.is_empty():
+		return
+	var mi := MeshInstance3D.new()
+	mi.mesh = MeshBaker.build(parts)
+	add_child(mi)
+	for d in doomed:
+		var dn := d as MeshInstance3D
+		if dn.get_child_count() == 0:
+			dn.get_parent().remove_child(dn)
+			dn.free()
+		else:
+			dn.mesh = null
+
+
+func _static_parts(n: Node, parts: Array, doomed: Array) -> void:
+	for c in n.get_children():
+		if crowd.has(c):
+			continue
+		_static_parts(c, parts, doomed)
+		if c is MeshInstance3D:
+			var mi := c as MeshInstance3D
+			var m = mi.material_override
+			if mi.mesh != null and m is StandardMaterial3D and not (m as StandardMaterial3D).emission_enabled \
+					and (m as StandardMaterial3D).transparency == BaseMaterial3D.TRANSPARENCY_DISABLED \
+					and mi.visible:
+				parts.append([mi.mesh, global_transform.affine_inverse() * mi.global_transform, (m as StandardMaterial3D).albedo_color])
+				doomed.append(mi)
 
 
 func bounce(beat_f: float) -> void:
