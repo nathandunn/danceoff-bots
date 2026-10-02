@@ -132,7 +132,11 @@ var fore_r: Node3D
 var shin_l: Node3D
 var shin_r: Node3D
 var _trouser_mat: StandardMaterial3D
-var _core_mi: MeshInstance3D = null      # the baked torso, for the hit flash
+var _core_mi: MeshInstance3D = null
+var _rise_t := 0.0        # struggling back to his feet: not dancing yet
+var _rise_len := 0.0
+var _slip_t := 0.0        # slipping a blow without breaking step
+var _slip_side := 1.0      # the baked torso, for the hit flash
 static var _flash_mats := {}
 var arm_l: Node3D
 var arm_r: Node3D
@@ -491,7 +495,7 @@ func can_see(point: Vector3) -> bool:
 
 
 func is_dancing() -> bool:
-	return action == "dance" and not returning and ragdoll == null and _stagger <= 0.0 and _dodge_t <= 0.0
+	return action == "dance" and not returning and ragdoll == null and _stagger <= 0.0 and _dodge_t <= 0.0 and _rise_t <= 0.0
 
 
 # ---------------------------------------------------------------- loop
@@ -511,6 +515,11 @@ func _physics_process(delta: float) -> void:
 		_down -= delta
 		if _down <= 0.0 or manager.celebrating:
 			_get_up()
+		return
+	if _rise_t > 0.0 and not manager.celebrating:
+		_rise_t -= delta
+		velocity = Vector3.ZERO
+		_rise_pose(delta)
 		return
 	if manager.celebrating:
 		_celebrate(delta)
@@ -851,12 +860,20 @@ func _dance_spot() -> Vector3:
 			if away.length() < 0.01:
 				away = Vector3(_side(), 0, 0)
 			return Stage.clamp_in(best.global_position + away.normalized() * 1.3, 0.6)
-	if caution > 0.55:
-		for e: Dancer in manager.standing(1 - team):
-			var off := home - e.global_position
-			off.y = 0.0
-			if off.length() < 2.5 and off.length() > 0.01:
-				home += off.normalized() * (2.5 - off.length()) * caution
+	# nobody wants a boot in the face while he's dancing: edge away from any rival on a kicking
+	# or punching move close by (the cautious most of all), and the cautious from any rival at all
+	var shy: float = Tune.v("shy_dist")
+	for e: Dancer in manager.standing(1 - team):
+		var off := home - e.global_position
+		off.y = 0.0
+		var dd := off.length()
+		if dd < 0.01:
+			continue
+		var threat: bool = e.joined and not Moves.strikes(e.move).is_empty()
+		if threat and dd < shy:
+			home += off / dd * (shy - dd) * (0.4 + 0.6 * caution)
+		elif caution > 0.55 and dd < 2.5:
+			home += off / dd * (2.5 - dd) * caution
 	return Stage.clamp_in(home, 0.6)
 
 
@@ -945,6 +962,8 @@ func _score_block() -> void:
 	var pts := float(Moves.TIER_PTS[Moves.tier(move)]) * q
 	stats["flair"] += pts
 	manager.add_flair(team, pts, false)
+	if pts >= 0.5:
+		_pop("+%d" % maxi(int(round(pts)), 1), Color(1.0, 0.9, 0.35))
 
 
 func _try_strike(b: int) -> void:
@@ -969,6 +988,11 @@ func _try_strike(b: int) -> void:
 	if victim == null:
 		return
 	stats["strikes"] += 1.0
+	# a dancer who sees it coming may slip it - a duck and a lean - and keep dancing
+	if victim.is_dancing() and victim.can_see(global_position) \
+			and rng.randf() < Tune.v("slip_base") + Tune.v("slip_caution") * victim.caution:
+		victim._slip(_sidestep_for(victim))
+		return
 	if victim.can_see(global_position) and rng.randf() < 0.05 + 0.3 * victim.caution:
 		victim._start_dodge(_sidestep_for(victim))
 		return
@@ -979,7 +1003,40 @@ func _try_strike(b: int) -> void:
 	stats["flair"] += pts
 	stats["strike_pts"] += pts
 	manager.add_flair(team, pts, true)
+	_pop("+%d!" % int(round(pts)), Color(1.0, 0.38, 0.25), true)
 	victim.take_hit(self, "strike", victim.global_position - global_position, strength_skill)
+
+
+## Slipping a blow: a quick duck and lean to one side, still dancing.
+func _slip(side_dir: Vector3) -> void:
+	_slip_t = 0.4
+	var right := global_transform.basis.x
+	_slip_side = 1.0 if side_dir.dot(right) >= 0.0 else -1.0
+	stats["dodges"] += 1.0
+	_pop("slip!", Color(0.85, 0.95, 1.0))
+
+
+## A score (or a slip) floats up over his head and fades.
+func _pop(text: String, col: Color, big := false) -> void:
+	if manager == null or manager.headless or manager.world == null or not is_inside_tree():
+		return
+	var l := Label3D.new()
+	l.text = text
+	l.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	l.no_depth_test = true
+	l.font_size = 60 if big else 40
+	l.pixel_size = 0.01
+	l.outline_size = 12
+	l.outline_modulate = Color(0.1, 0.05, 0.05)
+	l.modulate = col
+	manager.world.add_child(l)
+	var start := global_position + Vector3(rng.randf_range(-0.25, 0.25), 2.55, 0.0)
+	l.global_position = start
+	var tw := l.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(l, "global_position:y", start.y + 1.1, 0.95)
+	tw.tween_property(l, "modulate:a", 0.0, 0.6).set_delay(0.35)
+	tw.chain().tween_callback(l.queue_free)
 
 
 func _sidestep_for(victim: Dancer) -> Vector3:
@@ -1360,6 +1417,22 @@ func _get_up() -> void:
 	decide_timer = 0.0
 	if manager != null:
 		_got_up_at = float(manager.elapsed)
+		# every time he's put down he takes longer to get back up, and longer still while he's hurt
+		if not manager.celebrating:
+			var prior := maxf(float(stats["floored"]) - 1.0, 0.0)
+			_rise_len = minf((Tune.v("rise_base") + Tune.v("rise_per_fall") * prior) * (1.0 + hurt), 5.0)
+			_rise_t = _rise_len
+
+
+## Hands on knees, pushing himself up from a crouch, swaying - slower the more he's been floored.
+func _rise_pose(delta: float) -> void:
+	var u := 1.0 - clampf(_rise_t / maxf(_rise_len, 0.01), 0.0, 1.0)
+	var p := Moves.pose("", 0.0)
+	Moves._low(p, 1.25 * (1.0 - u), 0.9 * (1.0 - u) + 0.1)
+	var wob := sin(float(Time.get_ticks_msec()) * 0.012)
+	p["tilt"] = wob * 0.12 * (1.0 - u)
+	p["nod"] = float(p["nod"]) + 0.3 * (1.0 - u)
+	_apply_pose(p, delta)
 
 
 # ---------------------------------------------------------------- poses
@@ -1369,6 +1442,12 @@ func _limb_to(n: Node3D, r: Vector3, k: float) -> void:
 
 
 func _apply_pose(p: Dictionary, delta: float) -> void:
+	if _slip_t > 0.0:
+		var sk := sin(clampf(_slip_t / 0.4, 0.0, 1.0) * PI)
+		p["sway"] = float(p["sway"]) + _slip_side * 0.45 * sk
+		p["tilt"] = float(p["tilt"]) - _slip_side * 0.25 * sk
+		p["hunch"] = float(p.get("hunch", 0.0)) + 0.35 * sk
+		_slip_t -= delta
 	var k := clampf(delta * 16.0, 0.0, 1.0)
 	var wob := sin(float(Time.get_ticks_msec()) * 0.03) * 0.3 * clampf(_wobble / 0.4, 0.0, 1.0)
 	body_root.rotation = Vector3(

@@ -23,11 +23,16 @@ const DEFAULTS := {
 	"hurt_hit": 0.12,       # how much slower (and sloppier) each hit taken leaves a dancer
 	"hurt_max": 0.6,        # the most a dancer can be slowed
 	"hurt_heal": 0.006,     # per second he mends
-	"down_per_fall": 0.25,  # each earlier knockdown makes the next getting-up this much longer (fraction)
+	"down_per_fall": 0.35,  # each earlier knockdown makes the next getting-up this much longer (fraction)
 	"wear_per_fall": 0.07,  # each knockdown so far dulls his dancing by this much (capped at 0.5)
 	"hurt_sloppy": 0.5,
 	"style_bonus": 0.15,
-	"line_charge": 0.5,     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
+	"line_charge": 0.5,
+	"rise_base": 0.5,       # seconds to struggle back up after the first knockdown
+	"rise_per_fall": 0.45,  # and this much longer for every knockdown before it
+	"slip_base": 0.1,       # chance a dancer who sees a blow coming slips it without breaking step
+	"slip_caution": 0.2,    # plus this much times his caution
+	"shy_dist": 2.2,        # a dancer edges away from a rival on a kicking move closer than this     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
 }
 
 static var values := DEFAULTS.duplicate()

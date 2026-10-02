@@ -101,3 +101,9 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Browser physics: at most three catch-up steps a frame (still 60 a second, as the dancing is posed in the physics tick).
 - `?debug=1`: fps, draw calls, objects, triangles, nodes, top right and in the console.
 - Measured (1280x720, Chromium, mid-song): draw calls 1,825 -> 189 (548 with shadows off before the merge; 600 with `?shadows=1` after).
+
+## Pop-up scores, slower get-ups, dancing out of harm's way (2026-10-01)
+- A dancer's score floats up over his head and fades: +N in gold for a block of dancing, +N! in red for a dance-strike, slip! when he slips a blow.
+- Getting up: after the floor time he struggles up from a crouch, hands on knees, for `rise_base` + `rise_per_fall` x earlier knockdowns seconds (x(1 + hurt), max 5 s), not dancing. Floor time grows `down_per_fall` (now 35%) a fall.
+- Avoiding hits: every dancer edges away from a rival on a kicking or punching move within `shy_dist` (2.2 m), the cautious more; a dancer who sees a blow coming may slip it without breaking step (`slip_base` 0.1 + `slip_caution` 0.2 x caution).
+- Round robin (8 songs a pair): Balanced 45, Showboat 55, Drill Team 42, Rumbler 62, Hothead 40, Wallflower 55.
