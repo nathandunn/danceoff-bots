@@ -12,7 +12,7 @@ extends CharacterBody3D
 
 const STAT_KEYS: Array[String] = ["flair", "strike_pts", "beats", "dance_beats", "sync_beats", "strikes",
 	"strike_hits", "punches", "punch_hits", "throws", "throw_hits", "friendly_hits", "knockdowns",
-	"floored", "hits_taken", "fumbles", "freestyles", "dodges", "pickups"]
+	"floored", "hits_taken", "fumbles", "freestyles", "dodges", "pickups", "dominoes", "blocked_beats", "taunts"]
 
 const DECISION_INTERVAL := 0.12
 const WALK_SPEED := 4.6
@@ -133,6 +133,8 @@ var shin_l: Node3D
 var shin_r: Node3D
 var _trouser_mat: StandardMaterial3D
 var _core_mi: MeshInstance3D = null
+var jamming := false      # crowding a rival on purpose, so he can't dance
+var _was_blocked := false
 var knocked_out := false   # too hurt to get up: lies there trying, for the rest of the song
 var _out_t := 0.0
 var _rise_t := 0.0        # struggling back to his feet: not dancing yet
@@ -815,9 +817,15 @@ func _do_dance(delta: float) -> void:
 		var dir := CROWD_DIR
 		if at.length() > 0.01:
 			dir = at.normalized() * (1.0 - w) + CROWD_DIR * w
-		# a twerk is danced with the back to them
+		# a twerk is danced with the backside to them: at the nearest rival if one is close (a taunt)
 		if joined and Moves.REAR.has(move):
-			dir = -dir
+			var mark := _taunt_mark()
+			if mark != null:
+				var tm := mark.global_position - global_position
+				tm.y = 0.0
+				dir = -tm.normalized() if tm.length() > 0.01 else -dir
+			else:
+				dir = -dir
 		_face(global_position + dir, delta)
 	var t := fposmod(float(manager.beat_f) - float(phrase_start) + tempo_err, float(Moves.beats(move)))
 	# an injured man dances slower and smaller, stooped, half a beat behind his own steps
@@ -871,6 +879,23 @@ func _dance_spot() -> Vector3:
 			if away.length() < 0.01:
 				away = Vector3(_side(), 0, 0)
 			return Stage.clamp_in(best.global_position + away.normalized() * 1.3, 0.6)
+	# a hard crew pressing in crowds the other lot: stand right in a rival's space so he can't dance
+	jamming = false
+	if manager.stance[team] != "hold" and aggression > Tune.v("jam_aggr") and Moves.strikes(move).is_empty():
+		var mark: Dancer = null
+		var md := 6.0
+		for e: Dancer in manager.standing(1 - team):
+			var de := global_position.distance_to(e.global_position)
+			if de < md:
+				md = de
+				mark = e
+		if mark != null:
+			jamming = true
+			var aw := global_position - mark.global_position
+			aw.y = 0.0
+			if aw.length() < 0.01:
+				aw = Vector3(_side(), 0, 0)
+			return Stage.clamp_in(mark.global_position + aw.normalized() * 0.6, 0.6)
 	# nobody wants a boot in the face while he's dancing: edge away from any rival on a kicking
 	# or punching move close by (the cautious most of all), and the cautious from any rival at all
 	var shy: float = Tune.v("shy_dist")
@@ -883,6 +908,9 @@ func _dance_spot() -> Vector3:
 		var threat: bool = e.joined and not Moves.strikes(e.move).is_empty()
 		if threat and dd < shy:
 			home += off / dd * (shy - dd) * (0.4 + 0.6 * caution)
+		elif dd < Tune.v("block_dist") + 0.7:
+			# room to dance: step clear of a rival crowding in
+			home += off / dd * (Tune.v("block_dist") + 0.7 - dd) * (0.5 + 0.5 * caution)
 		elif caution > 0.55 and dd < 2.5:
 			home += off / dd * (2.5 - dd) * caution
 	return Stage.clamp_in(home, 0.6)
@@ -928,6 +956,15 @@ func on_beat(b: int, call: String) -> void:
 		stats["dance_beats"] += 1.0
 		block_beats += 1
 		var on_time := absf(tempo_err) < TIMING_TOL
+		# no room to do the move: a rival in his face or a body at his feet
+		var cramped := blocked()
+		if cramped:
+			on_time = false
+			block_ok = false
+			stats["blocked_beats"] += 1.0
+			if not _was_blocked:
+				_pop("blocked!", Color(0.95, 0.6, 0.3))
+		_was_blocked = cramped
 		if on_time:
 			block_on_time += 1
 		var k := b - phrase_start
@@ -958,6 +995,19 @@ func _score_block() -> void:
 	q *= maxf(1.0 - 0.2 * float(repeats), 0.4)
 	# a crew that mixes its styles - ballet into burlesque into cheer - pleases the judges
 	q *= 1.0 + Tune.v("style_bonus") * manager.style_mix(team)
+	# a taunt at a rival close by: extra flair, and he's within his rights to swing at you
+	var mark: Dancer = _taunt_mark() if Moves.TAUNTS.has(move) else null
+	var taunted := false
+	if mark != null:
+		var tm := mark.global_position - global_position
+		tm.y = 0.0
+		var al := facing().dot(tm.normalized()) if tm.length() > 0.01 else 0.0
+		if (Moves.REAR.has(move) and al < -0.4) or (not Moves.REAR.has(move) and al > 0.4):
+			taunted = true
+			q *= 1.0 + Tune.v("taunt_bonus")
+			stats["taunts"] += 1.0
+			mark.last_attacker = self
+			mark.last_attacked_at = float(manager.elapsed)
 	# a hat to tip and a cane to twirl: hand work, so arm sets how much each adds
 	var kit := 0.0
 	if hat != null:
@@ -973,7 +1023,9 @@ func _score_block() -> void:
 	var pts := float(Moves.TIER_PTS[Moves.tier(move)]) * q
 	stats["flair"] += pts
 	manager.add_flair(team, pts, false)
-	if pts >= 0.5:
+	if taunted:
+		_pop("+%d taunt!" % maxi(int(round(pts)), 1), Color(1.0, 0.45, 0.8), true)
+	elif pts >= 0.5:
 		_pop("+%d" % maxi(int(round(pts)), 1), Color(1.0, 0.9, 0.35))
 
 
@@ -993,6 +1045,7 @@ func _try_strike(b: int) -> void:
 		var off := e.global_position - global_position
 		off.y = 0.0
 		var d := off.length()
+		d -= 0.25 * float(e.mates_near(1.6))
 		if d < best_d and (d < 0.4 or facing().dot(off / maxf(d, 0.001)) > 0.25):
 			best_d = d
 			victim = e
@@ -1299,6 +1352,16 @@ func _knock_down(by: Dancer, how: String, dir: Vector3, power: float, now: float
 	if flat.length() < 0.01:
 		flat = Vector3(-_side(), 0, 0)
 	flat = flat.normalized()
+	# a fighter knocks his man into his own mates if he can
+	if by != null and is_instance_valid(by) and by.team != team and how != "domino":
+		var mate := _nearest_mate(2.5)
+		if mate != null:
+			var to := mate.global_position - global_position
+			to.y = 0.0
+			if to.length() > 0.05:
+				var w := 0.4 + 0.5 * by.aggression
+				flat = (flat * (1.0 - w) + to.normalized() * w).normalized()
+	call_deferred("_domino", by, flat, power, now)
 	if held != null:
 		var h := held
 		held = null
@@ -1487,6 +1550,78 @@ func _out_pose(delta: float) -> void:
 	p["nod"] = -0.5 + 0.3 * push
 	p["turn"] = 0.4 * sin(_out_t * 0.5)
 	_apply_pose(p, delta)
+
+
+## Mates of his standing within r metres.
+func mates_near(r: float) -> int:
+	var n := 0
+	for d in manager.dancers:
+		if d != self and d.team == team and d.ragdoll == null and not d.knocked_out \
+				and d.global_position.distance_to(global_position) < r:
+			n += 1
+	return n
+
+
+## The rival he'd taunt: the nearest standing one within taunt range.
+func _taunt_mark() -> Dancer:
+	var best: Dancer = null
+	var bd: float = Tune.v("taunt_range")
+	for e: Dancer in manager.standing(1 - team):
+		var de := global_position.distance_to(e.global_position)
+		if de < bd:
+			bd = de
+			best = e
+	return best
+
+
+func _nearest_mate(r: float) -> Dancer:
+	var best: Dancer = null
+	var bd := r
+	for d in manager.dancers:
+		if d == self or d.team != team or d.ragdoll != null or d.knocked_out:
+			continue
+		var dd: float = d.global_position.distance_to(global_position)
+		if dd < bd:
+			bd = dd
+			best = d
+	return best
+
+
+## No room to dance: a body on the floor at his feet, or a rival in his face (unless he's the one
+## doing the crowding).
+func blocked() -> bool:
+	var r: float = Tune.v("block_dist")
+	for d in manager.dancers:
+		if d == self or d.global_position.distance_to(global_position) >= r:
+			continue
+		if d.ragdoll != null or d.knocked_out:
+			return true
+		if d.team != team and (not jamming or Tune.v("jam_free") < 0.5):
+			return true
+	return false
+
+
+## He went down into his mates: whoever he lands on may go down too, and so on down the line.
+func _domino(by: Dancer, flat: Vector3, power: float, now: float) -> void:
+	if manager == null or not manager.running:
+		return
+	var land := global_position + flat * 0.9
+	for d in manager.dancers:
+		if d == self or d.team != team or d.ragdoll != null or d.knocked_out:
+			continue
+		if d.global_position.distance_to(land) >= Tune.v("domino_reach"):
+			continue
+		if now - d._got_up_at < 1.0:
+			continue
+		if d.rng.randf() < Tune.v("domino") * (1.3 - 0.6 * clampf(d.balance_skill, 0.0, 1.0)):
+			d.stats["hits_taken"] += 1.0
+			if by != null and is_instance_valid(by):
+				by.stats["dominoes"] += 1.0
+			d._pop("DOMINO!", Color(1.0, 0.7, 0.2), true)
+			d._knock_down(by, "domino", flat, power * 0.7, now)
+		else:
+			d._stagger = 0.5
+			d.block_ok = false
 
 
 func _rise_pose(delta: float) -> void:

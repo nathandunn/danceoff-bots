@@ -9,8 +9,8 @@ const DEFAULTS := {
 	"grudge_mult": 1.5,     # pull towards whoever last hit you
 	"guard_mult": 2.2,      # teamwork weight on wading in for a mate
 	"fetch_mult": 1.0,      # scale on the urge to fetch a prop
-	"kd_base": 0.6,          # knockdown chance at equal strength and balance
-	"down_mult": 1.6,       # scale on time spent on the floor
+	"kd_base": 0.45,         # knockdown chance at equal strength and balance
+	"down_mult": 1.2,       # scale on time spent on the floor
 	"rejoin_beats": 4.0,    # a dancer who stopped rejoins at the next phrase (8) or bar (4)
 	"strike_pts": 0.0,       # flair for a dance-strike that lands
 	"press_bias": 0.0,      # added to every crew's urge to move up on the other lot
@@ -34,7 +34,14 @@ const DEFAULTS := {
 	"slip_caution": 0.2,    # plus this much times his caution
 	"shy_dist": 2.2,
 	"ko_falls": 4.0,        # put down this many times (or hurt past ko_injury) and he stays down for the song
-	"ko_injury": 0.95,        # a dancer edges away from a rival on a kicking move closer than this     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
+	"ko_injury": 0.95,
+	"block_dist": 0.8,      # a rival this close, or a body on the floor, and he can't do his move
+	"jam_free": 0.0,        # 1: a man crowding a rival can still dance; 0: the crush stops both
+	"jam_aggr": 0.6,        # aggression above which a pressing crew's dancers crowd a rival on purpose
+	"domino": 0.55,         # chance a man knocked into his mate takes the mate down too
+	"domino_reach": 1.1,
+	"taunt_bonus": 0.5,     # extra flair for a block danced as a taunt at a rival close by
+	"taunt_range": 4.0,    # how close to where he falls the mate must be        # a dancer edges away from a rival on a kicking move closer than this     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
 }
 
 static var values := DEFAULTS.duplicate()

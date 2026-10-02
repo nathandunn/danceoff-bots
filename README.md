@@ -114,3 +114,11 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Knocked out: after `ko_falls` (4) knockdowns, or injury past `ko_injury`, he stays down for the rest of the song, face down and pushing up on his arms every few seconds and flopping back (OUT!). Out dancers are not targets and take no more hits.
 - Harder knockdowns so a fighting crew still has a way to win: `kd_base` 0.6, `down_mult` 1.6.
 - Round robin (8 songs a pair): Balanced 48, Showboat 70, Drill Team 52, Rumbler 45, Hothead 22, Wallflower 62.
+
+## Blocking, dominoes and taunts (2026-10-01)
+- You can't dance if you're blocked: a rival within `block_dist` (0.8 m) or a body on the floor at your feet and the beat is off, the block scores nothing ("blocked!"). Dancers step clear of rivals crowding in.
+- Jamming: in a press or charge, dancers with aggression over `jam_aggr` crowd the nearest rival on purpose. With `jam_free` 0 the crush stops both men's dancing.
+- Knock them into each other: a fighter aims his man into his own mates (more so the more aggressive he is); a mate within `domino_reach` of where he falls goes down too with chance `domino` ("DOMINO!"), and so on down the line. Charges pick the rival standing among the most mates.
+- Taunts: a twerk, back it up or low bounce shaken at a rival within `taunt_range` (backside to him), or a hip bump, shimmy or shoulder tease in his face, scores x(1 + `taunt_bonus`) ("+N taunt!"), and the taunted man may swing back. Captains call taunts more with rivals close.
+- Knockdowns softened again (`kd_base` 0.45, `down_mult` 1.2) now that blocking gives the fighters their edge.
+- Round robin (8 songs a pair): Balanced 45, Showboat 52, Drill Team 42, Rumbler 62, Hothead 48, Wallflower 50.

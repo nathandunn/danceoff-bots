@@ -437,7 +437,8 @@ func _pick_focus(t: int) -> Dancer:
 	var best: Dancer = null
 	var best_d := INF
 	for e in standing(1 - t):
-		var dd := c.distance_to(e.global_position)
+		# the best target stands next to his mates: knock him into them
+		var dd := c.distance_to(e.global_position) - 1.5 * float(e.mates_near(1.6))
 		if dd < best_d:
 			best_d = dd
 			best = e

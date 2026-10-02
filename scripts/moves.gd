@@ -92,6 +92,9 @@ const GRITTY: Array[String] = ["twerk", "back_it_up", "booty_drop", "floor_shake
 	"stanky_leg", "jerk", "shmoney", "dougie", "running_man", "harlem_shake", "krump", "hip_roll", "wind_it_down"]
 ## Moves danced with the backside to whoever he'd otherwise face (the crowd, or the other lot as a taunt).
 const REAR: Array[String] = ["twerk", "back_it_up", "low_bounce"]
+## Taunts: the REAR moves shaken at a rival's face, and these done right in it. Extra flair, and
+## the rival may take a swing.
+const TAUNTS: Array[String] = ["twerk", "back_it_up", "low_bounce", "hip_bump", "shimmy", "shoulder_tease", "booty_drop", "floor_shake"]
 const DROPS: Array[String] = ["hip_roll", "twerk", "booty_drop", "low_bounce", "drop_and_pop", "wind_it_down", "duck_walk", "floor_shake",
 	"plie_port", "pirouette", "arabesque", "grand_jete", "hip_bump", "shoulder_tease", "slow_strut", "high_v", "clap_punch", "herkie", "toe_touch", "soft_shoe", "hat_tip_bow", "buck_and_wing",
 	"stanky_leg", "jerk", "shmoney", "dougie", "running_man", "harlem_shake", "back_it_up", "krump"]
@@ -145,6 +148,8 @@ static func choose(rng: RandomNumberGenerator, show: float, aggr: float, rivals_
 			w *= 1.8 + 1.0 * show
 		if REAR.has(m):
 			w *= 2.0
+		if rivals_near and TAUNTS.has(m):
+			w *= 1.4 + show
 		if last_style != "" and style(m) == last_style:
 			w *= 0.6 if last_style == "street" else 0.3
 		if not strikes(m).is_empty():
