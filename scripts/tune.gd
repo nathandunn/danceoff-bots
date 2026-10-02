@@ -9,10 +9,10 @@ const DEFAULTS := {
 	"grudge_mult": 1.5,     # pull towards whoever last hit you
 	"guard_mult": 2.2,      # teamwork weight on wading in for a mate
 	"fetch_mult": 1.0,      # scale on the urge to fetch a prop
-	"kd_base": 0.38,         # knockdown chance at equal strength and balance
-	"down_mult": 1.0,       # scale on time spent on the floor
+	"kd_base": 0.6,          # knockdown chance at equal strength and balance
+	"down_mult": 1.6,       # scale on time spent on the floor
 	"rejoin_beats": 4.0,    # a dancer who stopped rejoins at the next phrase (8) or bar (4)
-	"strike_pts": 18.0,      # flair for a dance-strike that lands
+	"strike_pts": 0.0,       # flair for a dance-strike that lands
 	"press_bias": 0.0,      # added to every crew's urge to move up on the other lot
 	"charge_bonus": 0.5,    # extra pull for a hothead to throw a punch at the charge's target too
 	"retort_s": 4.0,        # outside a charge, a dancer only punches someone who hit him this recently
@@ -32,7 +32,9 @@ const DEFAULTS := {
 	"rise_per_fall": 0.45,  # and this much longer for every knockdown before it
 	"slip_base": 0.1,       # chance a dancer who sees a blow coming slips it without breaking step
 	"slip_caution": 0.2,    # plus this much times his caution
-	"shy_dist": 2.2,        # a dancer edges away from a rival on a kicking move closer than this     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
+	"shy_dist": 2.2,
+	"ko_falls": 4.0,        # put down this many times (or hurt past ko_injury) and he stays down for the song
+	"ko_injury": 0.95,        # a dancer edges away from a rival on a kicking move closer than this     # chance a charge is a line (each kicks his own man) rather than a gang rush    # extra flair, at most, for a crew whose last four calls span four styles     # extra timing wobble per unit of hurt (1 = twice as ragged at full hurt)
 }
 
 static var values := DEFAULTS.duplicate()

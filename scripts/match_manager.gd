@@ -455,7 +455,7 @@ func team_dancers(t: int) -> Array[Dancer]:
 func standing(t: int) -> Array[Dancer]:
 	var out: Array[Dancer] = []
 	for d in dancers:
-		if d.team == t and d.ragdoll == null:
+		if d.team == t and d.ragdoll == null and not d.knocked_out:
 			out.append(d)
 	return out
 

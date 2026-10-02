@@ -133,6 +133,8 @@ var shin_l: Node3D
 var shin_r: Node3D
 var _trouser_mat: StandardMaterial3D
 var _core_mi: MeshInstance3D = null
+var knocked_out := false   # too hurt to get up: lies there trying, for the rest of the song
+var _out_t := 0.0
 var _rise_t := 0.0        # struggling back to his feet: not dancing yet
 var _rise_len := 0.0
 var _slip_t := 0.0        # slipping a blow without breaking step
@@ -495,7 +497,7 @@ func can_see(point: Vector3) -> bool:
 
 
 func is_dancing() -> bool:
-	return action == "dance" and not returning and ragdoll == null and _stagger <= 0.0 and _dodge_t <= 0.0 and _rise_t <= 0.0
+	return not knocked_out and action == "dance" and not returning and ragdoll == null and _stagger <= 0.0 and _dodge_t <= 0.0 and _rise_t <= 0.0
 
 
 # ---------------------------------------------------------------- loop
@@ -515,6 +517,10 @@ func _physics_process(delta: float) -> void:
 		_down -= delta
 		if _down <= 0.0 or manager.celebrating:
 			_get_up()
+		return
+	if knocked_out:
+		velocity = Vector3.ZERO
+		_out_pose(delta)
 		return
 	if _rise_t > 0.0 and not manager.celebrating:
 		_rise_t -= delta
@@ -562,7 +568,7 @@ func _physics_process(delta: float) -> void:
 
 
 func _move() -> void:
-	velocity *= 1.0 - hurt   # a battered dancer is a slower one
+	velocity *= (1.0 - hurt) * (1.0 - 0.35 * injury())   # a battered dancer is a slower one
 	move_and_slide()
 	global_position = Stage.clamp_in(global_position, 0.4)
 
@@ -814,7 +820,12 @@ func _do_dance(delta: float) -> void:
 			dir = -dir
 		_face(global_position + dir, delta)
 	var t := fposmod(float(manager.beat_f) - float(phrase_start) + tempo_err, float(Moves.beats(move)))
-	_apply_pose(Moves.pose(move if joined else "", t), delta)
+	# an injured man dances slower and smaller, stooped, half a beat behind his own steps
+	var inj := injury()
+	var pp := Moves.pose(move if joined else "", t * (1.0 - 0.4 * inj))
+	if inj > 0.01:
+		_injure_pose(pp, inj)
+	_apply_pose(pp, delta)
 
 
 ## His place in the crew's wedge, wherever the crew has advanced it to; on a strike move an
@@ -1001,9 +1012,11 @@ func _try_strike(b: int) -> void:
 	stats["strike_hits"] += 1.0
 	var pts := Tune.v("strike_pts") * clampf(execution * (1.0 - 0.8 * wear()), 0.2, 1.4)
 	stats["flair"] += pts
-	stats["strike_pts"] += pts
-	manager.add_flair(team, pts, true)
-	_pop("+%d!" % int(round(pts)), Color(1.0, 0.38, 0.25), true)
+	# only the dancing scores (owner, 2026-10-01): a blow that lands is worth nothing in itself
+	if pts > 0.0:
+		stats["strike_pts"] += pts
+		manager.add_flair(team, pts, true)
+	_pop("POW!", Color(1.0, 0.38, 0.25), true)
 	victim.take_hit(self, "strike", victim.global_position - global_position, strength_skill)
 
 
@@ -1245,6 +1258,8 @@ func prop_hit(p: Prop) -> void:
 
 
 func take_hit(by: Dancer, how: String, dir: Vector3, power: float) -> void:
+	if knocked_out:
+		return
 	if ragdoll != null or manager == null or not manager.running:
 		return
 	var now: float = manager.elapsed
@@ -1419,12 +1434,61 @@ func _get_up() -> void:
 		_got_up_at = float(manager.elapsed)
 		# every time he's put down he takes longer to get back up, and longer still while he's hurt
 		if not manager.celebrating:
+			if float(stats["floored"]) >= Tune.v("ko_falls") or injury() >= Tune.v("ko_injury"):
+				knocked_out = true
+				_out_t = 0.0
+				action = "out"
+				_pop("OUT!", Color(0.85, 0.85, 0.9), true)
+				return
 			var prior := maxf(float(stats["floored"]) - 1.0, 0.0)
-			_rise_len = minf((Tune.v("rise_base") + Tune.v("rise_per_fall") * prior) * (1.0 + hurt), 5.0)
+			_rise_len = minf((Tune.v("rise_base") + Tune.v("rise_per_fall") * prior) * (1.0 + hurt + injury()), 6.0)
 			_rise_t = _rise_len
 
 
 ## Hands on knees, pushing himself up from a crouch, swaying - slower the more he's been floored.
+## How badly he's been knocked about, 0 .. 1: the falls so far and the fresh hurt together.
+func injury() -> float:
+	return clampf(wear() * 1.2 + hurt * 0.7, 0.0, 1.0)
+
+
+func _injure_pose(p: Dictionary, inj: float) -> void:
+	var k := 1.0 - 0.5 * inj
+	for key in ["arm_l", "arm_r"]:
+		var v: Vector3 = p[key]
+		p[key] = v.lerp(Vector3(0.15, 0, -0.1 if key == "arm_l" else 0.1), 1.0 - k)
+	for key in ["leg_l", "leg_r"]:
+		p[key] = (p[key] as Vector3) * k
+	for key in ["sway", "tilt", "counter", "twist", "turn"]:
+		p[key] = float(p.get(key, 0.0)) * k
+	p["hunch"] = float(p.get("hunch", 0.0)) + 0.3 * inj
+	p["nod"] = float(p.get("nod", 0.0)) + 0.25 * inj
+
+
+## Out for the count: face down on the boards, every few seconds pushing up on his arms and
+## a knee, and flopping back.
+func _out_pose(delta: float) -> void:
+	_out_t += delta
+	var cyc := fposmod(_out_t, 3.4)
+	var push := sin(clampf((cyc - 1.6) / 1.1, 0.0, 1.0) * PI) * (0.6 + 0.4 * sin(_out_t * 0.7))
+	var p := Moves.pose("", 0.0)
+	p["lean"] = -1.45 + 0.5 * push
+	p["bob"] = -0.05
+	p["sway"] = 0.0
+	p["tilt"] = 0.15 * sin(_out_t * 1.3)
+	p["arm_l"] = Vector3(2.4 - 0.9 * push, 0, -0.5)
+	p["arm_r"] = Vector3(2.4 - 0.9 * push, 0, 0.5)
+	p["elbow_l"] = 1.4 - 1.0 * push
+	p["elbow_r"] = 1.4 - 1.0 * push
+	p["leg_l"] = Vector3(0.6 * push, 0, -0.1)
+	p["leg_r"] = Vector3(0.1, 0, 0.1)
+	p["knee_l"] = 1.2 * push
+	p["knee_r"] = 0.2
+	p["hunch"] = 0.2 * push
+	p["nod"] = -0.5 + 0.3 * push
+	p["turn"] = 0.4 * sin(_out_t * 0.5)
+	_apply_pose(p, delta)
+
+
 func _rise_pose(delta: float) -> void:
 	var u := 1.0 - clampf(_rise_t / maxf(_rise_len, 0.01), 0.0, 1.0)
 	var p := Moves.pose("", 0.0)

@@ -107,3 +107,10 @@ the big artefacts; the Dockerfile serves `dist/` with nginx.
 - Getting up: after the floor time he struggles up from a crouch, hands on knees, for `rise_base` + `rise_per_fall` x earlier knockdowns seconds (x(1 + hurt), max 5 s), not dancing. Floor time grows `down_per_fall` (now 35%) a fall.
 - Avoiding hits: every dancer edges away from a rival on a kicking or punching move within `shy_dist` (2.2 m), the cautious more; a dancer who sees a blow coming may slip it without breaking step (`slip_base` 0.1 + `slip_caution` 0.2 x caution).
 - Round robin (8 songs a pair): Balanced 45, Showboat 55, Drill Team 42, Rumbler 62, Hothead 40, Wallflower 55.
+
+## Only the dancing scores; injury shows (2026-10-01)
+- Owner's rule changed: a blow that lands scores nothing (`strike_pts` 0); a landed dance-strike shows POW!. Dancing a kick line still scores as dancing.
+- Injury (`Dancer.injury()` = wear x 1.2 + hurt x 0.7): an injured dancer dances slower (his pose clock runs up to 40% slow) and smaller, stooped, moves slower, and gets up slower still.
+- Knocked out: after `ko_falls` (4) knockdowns, or injury past `ko_injury`, he stays down for the rest of the song, face down and pushing up on his arms every few seconds and flopping back (OUT!). Out dancers are not targets and take no more hits.
+- Harder knockdowns so a fighting crew still has a way to win: `kd_base` 0.6, `down_mult` 1.6.
+- Round robin (8 songs a pair): Balanced 48, Showboat 70, Drill Team 52, Rumbler 45, Hothead 22, Wallflower 62.
